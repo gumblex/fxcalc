@@ -1526,8 +1526,7 @@ class eparser:
 			self.expr=expr.strip()
 		if not self.expr:
 			return
-		if 1:
-		#try:
+		try:
 			postlist=self.SplitExpr()
 			try:
 				self.result=self.PostEval(self.In2Post(postlist))
