@@ -1,6 +1,5 @@
 #!/usr/bin/python3
-# -*- coding: utf-8 -*-
-# Python 3.3
+"""A calculator module to simulate the function of some natural-display scientific calculators."""
 
 # type, priority, parameters
 # type:0:Const,1:Function,2:Operator-ltr,3:Operator-rtl
@@ -15,8 +14,8 @@
 
 #Err type: MathERROR, SyntaxERROR, DimensionERROR, CannotSolve, VariableERROR, TimeOut, ArgumentERROR
 
-__verfunc__ = 0.7
-__verlib__ = 0.4
+__verfunc__ = 0.75
+__verlib__ = 0.6
 __version__ = int(__verfunc__*100 + __verlib__*10)
 
 # TODO: lowercase. ->X. alias. dynamic op list. use decimal instead. copy decimal's function. π
@@ -38,7 +37,6 @@ setcontext(decctx_canonfsga)
 # type, priority, parameters
 # follow f-789sga standard.
 op={"Rand": [0, 1, 0],
-	"Ran#": [0, 1, 0],
 	"i": [0, 1, 0],
 	"pi": [0, 1, 0],
 	"e": [0, 1, 0],
@@ -46,7 +44,7 @@ op={"Rand": [0, 1, 0],
 	"Pol(": [1, 3, 2],
 	"Rec(": [1, 3, 2],
 	"integr(": [1, 3, 3],
-	"d/dx(": [1, 3, (2,3)],
+	"d/dx(": [1, 3, 2],
 	"Sigma(": [1, 3, 3],
 	"Pi(": [1, 3, 3],
 	"P(": [1, 3, 1],
@@ -88,13 +86,13 @@ op={"Rand": [0, 1, 0],
 	"i~Rand(": [1, 3, 2],
 	"e^": [3, 3, 1],
 	"10^": [3, 3, 1],
-	"^": [2, 4, 2],
+	"^": [3, 4, 2],
 	"!": [2, 4, 1],
 	"`": [2, 4, 2],
 	"(deg)": [2, 4, 1],
 	"(rad)": [2, 4, 1],
 	"(gra)": [2, 4, 1],
-	"xroot(": [2, 4, 2],
+	"xroot": [2, 4, 2],
 	">t": [2, 4, 1],
 	"%": [2, 4, 1],
 	"\\": [2, 5, 2],
@@ -132,10 +130,10 @@ op={"Rand": [0, 1, 0],
 opalias_raw={"Rand":["Ran#","rand","ran#"],
 	"Pol(":["pol("],
 	"Rec(":["rec("],
-	"integr(":["integral(","integrate(","∫("],
-	"d/dx(":["diff"],
-	"Sigma(":["sigma(","∑("],
-	"Pi(":["∏("], # "pi(" == "pi&("
+	"integr(":["Integr(","Integral(","Integrate(","integral(","integrate(" ,"∫("],
+	"d/dx(":["diff("],
+	"Sigma(":["sigma(","Sum(","sum(","∑("],
+	"Pi(":["Product(","product(","∏("], # "pi(" == ["pi","&","("]
 	"P(":["p("],
 	"Q(":["q("],
 	"R(":["r("],
@@ -149,9 +147,9 @@ opalias_raw={"Rand":["Ran#","rand","ran#"],
 	"sqrt(":["sq(","√("],
 	"Arg(":["arg("],
 	"Abs(":["abs("],
-	"Conjg(":["conjg("],
-	"Real(":["real("],
-	"Imag(":["imag("],
+	"Conjg(":["conjg(","Conjugate(","conjugate("],
+	"Real(":["real(","Re(","re("],
+	"Imag(":["imag(","Im(","im("],
 	"Not(":["not("],
 	"Neg(":["neg("],
 	"Det(":["det("],
@@ -167,11 +165,8 @@ opalias_raw={"Rand":["Ran#","rand","ran#"],
 	"(deg)":["(d)"],
 	"(rad)":["(r)"],
 	"(gra)":["(g)"],
-	"xroot(":["root(","x√("],
-	"d":["D"],
-	"h":["H","0x"],
-	"b":["B"],
-	"o":["O"],
+	"xroot":["root","x√"],
+	"h":["0x"],
 	"nPr":["npr"],
 	"nCr":["ncr"],
 	"<":["∠"],
@@ -191,6 +186,7 @@ for i in opalias_raw:
 	opalias[i]=i
 	for j in opalias_raw[i]:
 		opalias[j]=i
+del opalias_raw, i, j
 
 def gcd(*numbers):
 	"""Calculate the Greatest Common Divisor of a and b.
@@ -223,55 +219,13 @@ def reduce(function, iterable, initializer=None):
 		value = function(value, element)
 	return value
 
-def moneyfmt(value, places=2, curr='', sep=',', dp='.',
-			 pos='', neg='-', trailneg=''):
-	"""Convert Decimal to a money formatted string.
-
-	places:  required number of places after the decimal point
-	curr:    optional currency symbol before the sign (may be blank)
-	sep:     optional grouping separator (comma, period, space, or blank)
-	dp:      decimal point indicator (comma or period)
-			 only specify as blank when places is zero
-	pos:     optional sign for positive numbers: '+', space or blank
-	neg:     optional sign for negative numbers: '-', '(', space or blank
-	trailneg:optional trailing minus indicator:  '-', ')', space or blank
-
-	>>> d = Decimal('-1234567.8901')
-	>>> moneyfmt(d, curr='$')
-	'-$1,234,567.89'
-	>>> moneyfmt(d, places=0, sep='.', dp='', neg='', trailneg='-')
-	'1.234.568-'
-	>>> moneyfmt(d, curr='$', neg='(', trailneg=')')
-	'($1,234,567.89)'
-	>>> moneyfmt(Decimal(123456789), sep=' ')
-	'123 456 789.00'
-	>>> moneyfmt(Decimal('-0.02'), neg='<', trailneg='>')
-	'<0.02>'
-
-	"""
-	q = Decimal(10) ** -places      # 2 places --> '0.01'
-	sign, digits, exp = value.quantize(q).as_tuple()
-	result = []
-	digits = list(map(str, digits))
-	build, next = result.append, digits.pop
-	if sign:
-		build(trailneg)
-	for i in range(places):
-		build(next() if digits else '0')
-	if places:
-		build(dp)
-	if not digits:
-		build('0')
-	i = 0
-	while digits:
-		build(next())
-		i += 1
-		if i == 3 and digits:
-			i = 0
-			build(sep)
-	build(curr)
-	build(neg if sign else pos)
-	return ''.join(reversed(result))
+def fmresult(mode='norm', dg=1):
+	if mode=='fix':
+		pass
+	elif mode=='sci':
+		pass
+	else:
+		pass
 
 def pi():
 	"""Compute Pi to the current precision.
@@ -316,6 +270,12 @@ def exp(x):
 	getcontext().prec -= 2
 	return +s
 
+# constant instead of function
+getcontext().prec += 2
+c_pi = pi()
+c_e = exp(D(1))
+getcontext().prec -= 2
+
 def cos(x):
 	"""Return the cosine of x as measured in radians.
 
@@ -357,6 +317,8 @@ def sin(x):
 
 	"""
 	getcontext().prec += 2
+	#if abs(x) > 2 * pi:
+		#x = x % (2 * pi)
 	i, lasts, s, fact, num, sign = 1, 0, x, 1, x, 1
 	while s != lasts:
 		lasts = s
@@ -367,6 +329,11 @@ def sin(x):
 		s += num / fact * sign
 	getcontext().prec -= 2
 	return +s
+
+tan = lambda x : sin(x) / cos(x)
+cot = lambda x : cos(x) / sin(x)
+sec = lambda x : 1 / cos(x)
+csc = lambda x : 1 / sin(x)
 
 def det(l):
 	n=len(l)
@@ -401,6 +368,12 @@ class MathERROR(Exception):
 
 class SyntaxERROR(Exception):
 	'''The Syntax ERROR type.'''
+	def __init__(self, loc=0):
+		Exception.__init__(self)
+		self.loc = loc
+
+class KbdBreak(Exception):
+	'''The Keyboard Break ERROR type.'''
 	def __init__(self, loc=0):
 		Exception.__init__(self)
 		self.loc = loc
@@ -441,23 +414,30 @@ class frac(object):
 	a√c+d√e
 	-------
 	   b
+	t (type):
+	 1:int, 2:decimal, 4:frac
 	"""
 	
 	def __init__(self, *argn):
 		self.a,self.b,self.c,self.d,self.e = 0,1,1,0,1
+		self.t=1
+		self.real=self
+		self.imag=0
 		if len(argn)==1:
 			num=argn[0]
-			if num==0:
+			if not num:
 				return
-			if isinstance(num, frac):
+			elif isinstance(num, frac):
 				self.a,self.b,self.c,self.d,self.e = num.a,num.b,num.c,num.d,num.e
 			elif isinstance(num, cfrac):
 				self.a,self.b,self.c,self.d,self.e = num.real.a,num.real.b,num.real.c,num.real.d,num.real.e
 			elif isinstance(num, int):
 				self.a=num
+				return
 			elif isinstance(num, float):
 				if num.is_integer():
 					self.a=int(num)
+					return
 				else:
 					self.a,self.b=self.limit_denominator(num.as_integer_ratio())
 					if abs(self.b)>10000:
@@ -465,6 +445,7 @@ class frac(object):
 			elif isinstance(num, Decimal):
 				if int(num)==num:
 					self.a=int(num)
+					return
 				else:
 					self.a,self.b=self.limit_denominator((int(num.scaleb(-num.as_tuple().exponent)), 10**(-num.as_tuple().exponent)))
 					if abs(self.b)>10000:
@@ -472,10 +453,23 @@ class frac(object):
 			elif isinstance(num, complex):
 				if num.real.is_integer():
 					self.a=int(num.real)
+					return
 				else:
 					self.a,self.b=self.limit_denominator(num.real.as_integer_ratio())
 					if abs(self.b)>10000:
 						self.a,self.b=D(num.real),1
+			elif isinstance(num, str):
+				try:
+					n=D(num).normalize()
+				except:
+					raise TypeError('invalid str for number')
+				if int(n)==n:
+					self.a=int(n)
+					return
+				else:
+					self.a,self.b=self.limit_denominator((int(n.scaleb(-n.as_tuple().exponent)), 10**(-n.as_tuple().exponent)))
+					if abs(self.b)>10000:
+						self.a,self.b=n,1
 		elif len(argn)==2:
 			self.a,self.b=int(argn[0]),int(argn[1])
 		elif len(argn)==3:
@@ -484,18 +478,22 @@ class frac(object):
 			self.a,self.b,self.c,self.d=int(argn[0]),int(argn[1]),int(argn[2]),int(argn[3])
 		elif len(argn)>=5:
 			self.a,self.b,self.c,self.d,self.e=int(argn[0]),int(argn[1]),int(argn[2]),int(argn[3]),int(argn[4])
-		else:
-			return
 		self.normalize()
 
 	def __float__(self):
-		return (self.a * self.c**.5 + self.d * self.e**.5)/self.b
+		return float(self.todec())
 	
 	def todec(self):
-		return (D(self.a) * D(self.c).sqrt() + D(self.d) * D(self.e).sqrt())/D(self.b)
+		if self.t==4:
+			return (D(self.a) * D(self.c).sqrt() + D(self.d) * D(self.e).sqrt())/D(self.b)
+		else:
+			return D(self.a)
 	
 	def __int__(self):
-		return int(self.todec())
+		if self.t==1:
+			return int(self.a)
+		else:
+			return int(self.todec())
 	
 	def __complex__(self):
 		return complex(self.__float__())
@@ -507,13 +505,13 @@ class frac(object):
 		return str(self.todec().normalize())
 	
 	def pretty(self, mathdisp=True):
-		if self.isfloat():
+		self.normalize()
+		if self.t==2:
 			# TODO: Different in NORM, FIX, SCI
 			return str(self.todec().normalize())
-		elif self.__int__() == self.todec():
+		elif self.t==1:
 			return str(self.todec())
 		elif mathdisp:
-			self.normalize()
 			na,nb,nc,nd,ne= str(int(self.a)), str(int(self.b)), str(int(self.c)), str(int(self.d)), str(int(self.e))
 			l0,l1,lf,l2= '','','',''
 			if self.d==0:
@@ -611,14 +609,18 @@ class frac(object):
 		return self.__float__() <= float(other)
 	
 	def __eq__(self, other):
+		if other==None:
+			return False
 		try:
-			return self.todec() == D(other)
+			return self.todec() == frac(other).todec()
 		except:
 			return False
 	
 	def __ne__(self, other):
+		if other==None:
+			return True
 		try:
-			return self.todec() != D(other)
+			return self.todec() != frac(other).todec()
 		except:
 			return True
 	
@@ -634,10 +636,11 @@ class frac(object):
 	def __bool__(self):
 		return self.a!=0 and self.c!=0 or self.d!=0 and self.e!=0
 	
+	#TODO: Pure int and decimal operation
 	def __add__(self, other):
 		self.normalize()
 		y=frac(other)
-		if self.isfloat() or y.isfloat():
+		if (self.t+y.t) in (2,3,4,6):
 			return frac(self.todec() + y.todec())
 		#if self.c==self.e==y.c==y.e==1:
 			#return frac(self.a*y.b+y.a*self.b,self.b*y.b)
@@ -650,7 +653,9 @@ class frac(object):
 		for i in co.copy():
 			if co[i]==0:
 				del co[i]
-		if len(co)>2:
+		if not co:
+			return frac(0)
+		elif len(co)>2:
 			return frac(self.todec() + y.todec())
 		elif len(co)==2:
 			n=tuple(co.items())
@@ -673,7 +678,7 @@ class frac(object):
 	def __mul__(self, other):
 		self.normalize()
 		y=frac(other)
-		if self.isfloat() or y.isfloat():
+		if (self.t+y.t) in (2,3,4,6):
 			return frac(self.todec() * y.todec())
 		if self.c==self.e==1:
 			return frac(y.a*self.a, y.b*self.b, y.c, y.d*self.a, y.e)
@@ -708,7 +713,7 @@ class frac(object):
 			raise MathERROR
 		self.normalize()
 		y=frac(other)
-		if self.isfloat() or y.isfloat():
+		if (self.t+y.t) in (2,3,4,6):
 			return frac(self.todec() / y.todec())
 		if self.c==self.e==1:
 			# implict *.d==0
@@ -731,22 +736,23 @@ class frac(object):
 				# return frac(self.a*other.b,self.b*other.a,self.c,self.d*other.b,self.e)
 	
 	def __floordiv__(self, other):
-		return self.__int__() // int(other)
+		return frac(self.todec() // frac(other).todec())
 	
 	def __mod__(self, other):
 		y=frac(other)
-		return self.todec() % y.todec()
+		return frac(self.todec() % y.todec())
 	
 	def __divmod__(self, other):
 		y=frac(other)
-		return divmod(self.todec(), y.todec())
+		return frac(divmod(self.todec(), y.todec()))
 	
 	def __pow__(self, other, modulo=None):
 		if self==other==0:
 			raise MathERROR
 		if int(other)==other:
 			result=frac(1)
-			for i in range(abs(other)):
+			m= int(abs(other))
+			for i in range(m):
 				result*=self
 			if other<0:
 				result=1/result
@@ -755,9 +761,11 @@ class frac(object):
 			return result
 		elif other==.5:
 			if self<0:
-				raise MathERROR
+				return cfrac(self)**.5
 			self.normalize()
-			if self.c==1 and self.e==1:
+			if self.t==2:
+				return frac(self.todec().sqrt())
+			elif self.c==1 and self.e==1:
 				if modulo:
 					return frac((self.todec().sqrt())%modulo)
 				else:
@@ -778,32 +786,36 @@ class frac(object):
 		if not self:
 			raise MathERROR
 		y=frac(other)
-		return self.__mul__(frac(y.a*y.b, y.a**2*y.c-y.d**2*y.e, y.c, y.d*y.b, y.e))
+		if (self.t+y.t) in (2,3,4,6):
+			return frac(other.todec() / self.todec())
+		else:
+			return self.__mul__(frac(y.a*y.b, y.a**2*y.c-y.d**2*y.e, y.c, y.d*y.b, y.e))
 	
 	def __rfloordiv__(self, other):
-		return int(other) // self.__int__()
+		return frac(frac(other).todec() // self.todec())
 	
 	def __rmod__(self, other):
 		y=frac(other)
-		return y.todec() % self.todec()
+		return frac(y.todec() % self.todec())
 	
 	def __rdivmod__(self, other):
 		y=frac(other)
-		return divmod(y.todec(), self.todec())
+		return frac(divmod(y.todec(), self.todec()))
 	
 	def __rpow__(self, other):
 		return frac(other).__pow__(self)
 	
 	def __neg__(self):
-		self.a,self.d=-self.a,-self.d
-		self.normalize()
-		return self
+		return frac(-self.a, self.b, self.c, -self.d, self.e)
 	
 	def __pos__(self):
 		return self
 
 	def conjugate(self):
 		return self
+	
+	def copy(self):
+		return frac(self)
 	
 	def __abs__(self):
 		if self.__float__()<0:
@@ -815,6 +827,14 @@ class frac(object):
 		return int(self.a)!=self.a
 	
 	def simplify(self,num=None):
+		if (self.b,self.c,self.d,self.e)==(1,1,0,1):
+			if int(self.a)==self.a:
+				self.t=1
+			else:
+				self.t=2
+			return False
+		else:
+			self.t=4
 		def simplifysqrt(num):
 			if num==0:
 				return (0,1)
@@ -847,6 +867,7 @@ class frac(object):
 				self.a,self.d,self.e=self.a+self.d,0,1
 			ngcd=gcd(self.a,self.b,self.d)
 			self.a,self.b,self.d=self.a//ngcd,self.b//ngcd,self.d//ngcd
+			return True
 		elif isinstance(num, frac):
 			if num.isfloat():
 				return num
@@ -862,14 +883,15 @@ class frac(object):
 			raise ValueError("num must be a frac or a (a,b) tuple")
 	
 	def normalize(self):
-		if self.isfloat():
-			self.a,self.b,self.c,self.d,self.e=self.todec(),1,1,0,1
+		if not self.simplify():
+			return
+		if not self.__bool__():
+			self.a,self.b,self.c,self.d,self.e=0,1,1,0,1
 		elif int(self)==self:
 			self.a,self.b,self.c,self.d,self.e=int(self),1,1,0,1
-		elif not self.__bool__():
-			self.a,self.b,self.c,self.d,self.e=0,1,1,0,1
+		elif int(self.b)!=self.b or int(self.c)!=self.c or int(self.d)!=self.d or int(self.e)!=self.e:
+			self.a,self.b,self.c,self.d,self.e=self.todec(),1,1,0,1
 		else:
-			self.simplify()
 			if self.b<0:
 				self.a,self.b,self.d= -self.a,-self.b,-self.d
 			if self.c==self.e==1:
@@ -877,7 +899,7 @@ class frac(object):
 			elif self.e>self.c:
 				self.a,self.c,self.d,self.e=self.d,self.e,self.a,self.c
 
-	def limit_denominator(self,fractuple, max_denominator=100000):
+	def limit_denominator(self,fractuple, max_denominator=None):
 		"""Closest Fraction to self with denominator at most max_denominator."""
 		# Algorithm notes: For any real number x, define a *best upper
 		# approximation* to x to be a rational number p/q such that:
@@ -899,10 +921,14 @@ class frac(object):
 		# only when max_denominator == 1 and self is midway between
 		# two integers) the lower bound---i.e., the floor of self, is
 		# taken.
+		if not max_denominator:
+			max_denominator = 10**getcontext().prec
 		if len(fractuple) != 2:
 			raise ValueError("fractuple should be (a,b) represents the fraction a/b")
 		if max_denominator < 1:
 			raise ValueError("max_denominator should be at least 1")
+		ngcd=gcd(fractuple[0], fractuple[1])
+		fractuple=(fractuple[0]/ngcd, fractuple[1]/ngcd)
 		if fractuple[1] <= max_denominator:
 			return fractuple
 
@@ -1087,15 +1113,16 @@ class cfrac(object):
 		return cfrac(other).__pow__(self)
 	
 	def __neg__(self):
-		self.real,self.imag=-self.real,-self.imag
-		return self
+		return cfrac(-self.real, -self.imag)
 	
 	def __pos__(self):
 		return self
 	
 	def conjugate(self):
-		self.real,self.imag=self.real,-self.imag
-		return self
+		return cfrac(self.real, -self.imag)
+	
+	def copy(self):
+		return cfrac(self)
 	
 	def __abs__(self):
 		return (self.real**2+self.imag**2)**.5
@@ -1110,8 +1137,8 @@ class cfrac(object):
 		return self.imag==0
 
 
-class eparser:
-	def __init__(self, expr=None, vars={}):
+class Parser:
+	def __init__(self, expr=None, vars={}, numtype='frac'):
 		self.vars = {
 		'A': 0, 'B': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 0,  
 		'X': 0, 'Y': 0, 'M': 0, 'Ans': 0, '_0': 0, '_1': 0, 
@@ -1121,21 +1148,59 @@ class eparser:
 		'VctB': [], 'VctC': [], 'VctD': [], 'VctAns': []}
 		self.expr=None
 		self.result=None
+		self.format=None ###
+		self.mode=numtype ###
+		# frac, cfrac, float, int, decimal
 		if vars:
 			self.vars.update(vars)
 		if expr:
 			self.expr=expr.strip()
-			return self.Evaluate()
+
+	def ntype(self, num, numtype=None):
+		"Converts a number to the proper number type according to self.mode"
+		if not numtype:
+			numtype= self.mode
+		if isinstance(num, frac):
+			if numtype =='frac':
+				return num
+			else:
+				n=num.todec()
+		elif isinstance(num, cfrac):
+			if numtype =='cfrac':
+				return num
+			else:
+				n=num.real.todec()
+		elif isinstance(num, str):
+			n=D(num)
+		elif isinstance(num, Decimal):
+			if numtype =='decimal':
+				return +num
+			else:
+				n=num
+		else:
+			n=D(num)
+		if numtype =='frac':
+			return frac(num)
+		elif numtype =='cfrac':
+			return cfrac(num)
+		elif numtype =='float':
+			return float(num)
+		elif numtype =='int':
+			return int(num)
+		elif numtype =='decimal':
+			return +n
+		else:
+			return +n
 
 	def In2Post(self, lstin):
 		opstack=[]
 		lstout=[]
 		for id in range(len(lstin)):
-			i=(lstin[id],id)
+			i=lstin[id]
 			itype=op.get(i[0])
 			if itype:
 				if itype[0]==0:
-					lstout.append(i)
+					lstout.append((self.ntype(self.oeval(i[0],[])),i[1]))
 				elif itype[0]==1:
 					opstack.append(i)
 				elif itype[0] in (2,3):
@@ -1157,7 +1222,7 @@ class eparser:
 					if len(opstack[-1]) ==2:
 						opstack[-1] += (2,)
 					else:
-						opstack[-1][2] += 1
+						opstack[-1] = (opstack[-1][0],opstack[-1][1],opstack[-1][2]+1)
 				elif itype[0]==5:
 					try:
 						while op[opstack[-1][0]][0]!=1:
@@ -1178,6 +1243,7 @@ class eparser:
 		return lstout
 
 	def PostEval(self, lstin):
+		'Evaluates the Reverse Polish Expression.'
 		numstack=[]
 		for i in lstin:
 			oper=op.get(i[0])
@@ -1199,9 +1265,15 @@ class eparser:
 					argl=[]
 					for n in range(opnum):
 						argl.append (numstack.pop()[0])
+					argl.reverse()
 					try:
-						argl.reverse()
-						numstack.append((frac(self.oeval(i[0],argl)),i[1]))
+						num= self.oeval(i[0],argl)
+						if isinstance(num, (list, tuple)):
+							numstack.append((num,i[1]))
+						else:
+							numstack.append((self.ntype(num),i[1]))
+					except KeyboardInterrupt:
+						raise KbdBreak(i[1])
 					except:
 						raise MathERROR(i[1])
 				else:
@@ -1222,7 +1294,21 @@ class eparser:
 		expr=self.expr
 		while pos<len(expr):
 			i=expr[pos]
-			if ord(i) in range(48,58):
+			if i in ('"',"'"):
+				flen=1
+				tempfx=''
+				while pos+flen<len(expr):
+					j=expr[pos+flen]
+					if j==i:
+						break
+					else:
+						tempfx+=j
+					flen+=1
+				else:
+					raise SyntaxERROR(pos)
+				outlist.append((tempfx,pos))
+				pos+=flen
+			elif ord(i) in range(48,58):
 				tempnum += i
 				impmulti = True
 			elif i=='.':
@@ -1232,7 +1318,7 @@ class eparser:
 					tempnum += i
 					impmulti = True
 			elif i=='E':
-				# TODO: precies E recognition.
+				# TODO: precise E recognition.
 				if i in tempnum:
 					raise SyntaxERROR(pos)
 				else:
@@ -1242,7 +1328,7 @@ class eparser:
 			elif i==' ':
 				pass
 			else:
-				flen=8
+				flen=len(expr)-pos
 				oper,var,realop=None,None,None
 				while not oper:
 					if flen<0:
@@ -1252,31 +1338,33 @@ class eparser:
 				if oper:
 					realop=oper
 				if not realop:
-					flen=8
+					flen=len(expr)-pos
 					while var is None:
 						if flen<0:
 							break
 						var=self.vars.get(expr[pos:pos+flen])
 						flen-=1
 					if var!=None:
-						realop=frac(var)
+						realop=var
 					else:
 						raise SyntaxERROR(pos)
 				if tempnum:
 					try:
-						outlist.append(frac(D(tempnum)))
+						outlist.append((self.ntype(D(tempnum)),pos))
 					except:
 						raise SyntaxERROR(pos)
 				if oper:
-					if oper[0] in (0,1) and impmulti:
+					if op[oper][0] in (0,1) and impmulti:
 						# the implicit multiply
-						outlist.append('&')
-				elif var:
+						outlist.append(('&',pos))
+						impmulti=False
+				elif var!=None:
 					if impmulti:
-						outlist.append('&')
-				outlist.append(realop)
+						outlist.append(('&',pos))
+						impmulti=False
+				outlist.append((realop,pos))
 				if op.get(realop):
-					if op.get(realop)[0] in (0,5):
+					if op.get(realop)[0] ==5:
 						impmulti = True
 					else:
 						impmulti = False
@@ -1287,47 +1375,75 @@ class eparser:
 			pos+=1
 		if tempnum:
 			try:
-				outlist.append(frac(D(tempnum)))
+				outlist.append((self.ntype(D(tempnum)),pos))
 			except:
 				raise SyntaxERROR(pos)
 		return outlist
 
 	def oeval(self,o,a):
 		# should be type-independent	
+		N=self.ntype
 		if o=="Rand":
-			return random.random()
-		elif o=="Ran#":
 			return random.random()
 		elif o=="i":
 			return cfrac(0,1)
 		elif o=="pi":
-			return pi()
+			return c_pi # pi()
 		elif o=="e":
-			return D(1).exp()
+			return c_e # D(1).exp()
 		elif o=="(":
 			return a[0]
 		elif o=="Pol(":
+			# cfrac
 			x=cmath.polar(complex(a[0],a[1]))
-			self.vars['X']=x[0]
-			self.vars['Y']=x[1]
-			self.result=('Pol',x)
+			self.vars['X']=N(x[0])
+			self.vars['Y']=N(x[1])
+			self.format=('Pol',x)
 			return x[0]
 		elif o=="Rec(":
+			# cfrac
 			x=cmath.rect(a)
-			self.vars['X']=x.real
-			self.vars['Y']=x.imag
-			self.result=('Rec',(x.real,x.imag))
+			self.vars['X']= N(x.real)
+			self.vars['Y']= N(x.imag)
+			self.format=('Rec',(x.real,x.imag))
 			return x.real
 		elif o=="integr(":
 			#for i in frange()
-			pass
+			a0=frac(a[1]).todec()
+			b0=frac(a[2]).todec()
+			f=0
+			fx = lambda x0: Parser(a[0], {'X': x0}, 'decimal').Evaluate()
+			delta=(b0-a0)/10**(4+(b0-a0).log10())
+			lastx=a0
+			for x in frange(a0,b0,delta):
+				f+=(x-lastx)/6*(fx(lastx)+4*fx((lastx+x)/2)+fx(x))
+				lastx=x
+			f+=(b0-lastx)/6*(fx(lastx)+4*fx((b0+lastx)/2)+fx(b0))
+			return N(f)
 		elif o=="d/dx(":
-			pass
+			x=frac(a[1]).todec()
+			x1=x.next_minus()
+			x2=x.next_plus()
+			getcontext().prec += 2
+			f1=Parser(a[0], {'X': x1}, 'decimal').Evaluate()
+			f2=Parser(a[0], {'X': x2}, 'decimal').Evaluate()
+			result= (f2-f1)/(x2-x1)
+			getcontext().prec -= 2
+			return N(result)
 		elif o=="Sigma(":
-			# use float instead.
-			pass
+			x1=int(frac(a[1]))
+			x2=int(frac(a[2]))
+			f=0
+			for x in range(x1,x2+1):
+				f+=Parser(a[0], {'X': x}, 'decimal').Evaluate()
+			return N(f)
 		elif o=="Pi(":
-			pass
+			x1=int(frac(a[1]))
+			x2=int(frac(a[2]))
+			f=1
+			for x in range(x1,x2+1):
+				f*=Parser(a[0], {'X': x}, 'decimal').Evaluate()
+			return N(f)
 		elif o=="P(":
 			pass
 		elif o=="Q(":
@@ -1373,16 +1489,16 @@ class eparser:
 		elif o=="10^":
 			return 10**a[0]
 		elif o=="sqrt(":
-			return a[0]**.5
+			return a[0]**N('.5')
 		elif o=="cbrt(":
-			return a[0]**(D(1)/D(3))
+			return a[0]**(N(1)/N(3))
 		elif o=="Arg(":
 			# cmath.phase(x)
 			pass
 		elif o=="Abs(":
 			return abs(a[0])
 		elif o=="Conjg(":
-			pass
+			return cfrac(a[0]).conjugate()
 		elif o=="Real(":
 			return a[0].real
 		elif o=="Imag(":
@@ -1406,7 +1522,7 @@ class eparser:
 			pass
 		elif o=="Round(":
 			# TODO: Norm, Fix, Sci Mode, Complex
-			return D(str(a[0]))
+			return N(str(a[0]))
 		elif o=="LCM(":
 			return lcm(a)
 		elif o=="GCD(":
@@ -1415,7 +1531,7 @@ class eparser:
 			x=divmod(a[0],a[1])
 			self.vars['C']=x[0]
 			self.vars['D']=x[1]
-			self.result=('Qr',x)
+			self.format=('Qr',x)
 			return x[0]
 		elif o=="i~Rand(":
 			return round(random.uniform(int(a[0]),int(a[1])))
@@ -1433,8 +1549,8 @@ class eparser:
 			return a[0]
 		elif o=="(gra)":
 			return a[0]/200*math.pi
-		elif o=="xroot(":
-			return a[1]**(1/D(a[0]))
+		elif o=="xroot":
+			return a[1]**(1/N(a[0]))
 		elif o==">t":
 			pass
 		elif o=="%":
@@ -1509,11 +1625,11 @@ class eparser:
 			return a[0]
 		elif o==">rtheta":
 			x=cmath.polar(complex(a[0]))
-			self.result=('Rtheta',x)
+			self.format=('Rtheta',x)
 			return a[0]
 		elif o==">a+bi":
 			x=cmath.rect(a)
-			self.result=('ABi',x)
+			self.format=('ABi',x)
 			return a[0]
 		elif o==":":
 			# TODO: Eval left and right
@@ -1522,21 +1638,42 @@ class eparser:
 			raise SyntaxERROR
 
 	def Evaluate(self, expr=None):
+		self.result=None
+		self.format=None
 		if expr:
 			self.expr=expr.strip()
 		if not self.expr:
 			return
+		elif self.expr[0]=='#':
+			s=self.expr[1:]
+			if s=='help':
+				rstr='Functions and Operators:\n'
+				count=0
+				for i in op:
+					count+=1
+					if count%4:
+						rstr+=i+'\t'
+					else:
+						rstr+=i+'\n'
+				self.format=('info',  rstr)
+				return 0
+			# TODO: mode, settings
+			return 0 #setting name
+		elif self.expr=='=':
+			return self.vars['Ans']
 		try:
 			postlist=self.SplitExpr()
 			try:
 				self.result=self.PostEval(self.In2Post(postlist))
 				self.vars['Ans']= self.result
 				return self.result
-				# TODO: better result format
+				# TODO: better result format, print or report
 			except MathERROR as ex:
 				print ("Math ERROR:\n %s\n %s" % (self.expr, ' '*ex.loc + '^'))
 			except SyntaxERROR as ex:
 				print ("Syntax ERROR:\n %s\n %s" % (self.expr, ' '*ex.loc + '^'))
+			except KbdBreak as ex:
+				print ("Keyboard Break:\n %s\n %s" % (self.expr, ' '*ex.loc + '^'))
 			except DimensionERROR as ex:
 				print ("Dimension ERROR:\n %s\n %s" % (self.expr, ' '*ex.loc + '^'))
 			except CannotSolve as ex:
@@ -1550,12 +1687,63 @@ class eparser:
 		except SyntaxERROR as ex:
 			print ("Syntax ERROR:\n %s\n %s" % (self.expr, ' '*ex.loc + '^'))
 		return None
+	
+	def PrintResult(self):
+		# TODO: matrix, vct
+		# TODO: math and line
+		if self.format:
+			f=self.format[0]
+			r=self.format[1]
+			if f=='info':
+				return r
+			elif f=='err':
+				return r
+			elif f=='Pol' and self.result==r[0]:
+				return 'r=%s\nθ=%s' % (str(self.ntype(r[0], 'decimal')), str(self.ntype(r[1], 'decimal')))
+			elif f=='Rec' and self.result==r[0]:
+				return 'X=%s\nY=%s' % (str(self.ntype(r[0], 'decimal')), str(self.ntype(r[1], 'decimal')))
+		if isinstance(self.result, (str, list, tuple)):
+			return str(self.result)
+		elif self.expr=='=':
+			return str(self.ntype(self.vars['Ans'],'decimal'))
+		elif self.mode=='decimal':
+			return str(self.ntype(self.result,'decimal'))
+		elif self.mode=='frac':
+			if self.result==0 or abs(float(self.result)) > 1e6:
+				return frac(self.result).pretty()
+			piratio= frac(self.result/c_pi)
+			if piratio.t==2:
+				return frac(self.result).pretty()
+			else:
+				rstr= piratio.pretty()
+				rl=rstr.split()
+				if piratio == 1:
+					return 'π'
+				elif piratio ==-1:
+					return '-π'
+				elif len(rl) in (1,2):
+					return rstr + 'π'
+				elif len(rl)==3:
+					rl[1]+=' π'
+					return '\n'.join(l for l in rl)
+				elif len(rl)==4:
+					rl[2]+=' π'
+					return '\n'.join(l for l in rl)
+		elif self.mode=='cfrac':
+			return cfrac(self.result).pretty()
+		elif self.mode=='float':
+			return str(float(self.result))
+		elif self.mode=='int':
+			return str(int(self.result))
+		elif self.result == None:
+			return ''
 
-fx991es = eparser()
+fx991es = Parser()
 print ("== F-Calc %s ==\nuse the LineIO expressions of Casio fx-???ES/MS or Canon f-7??SGA for calculation." % __version__)
 a=input("> ")
 while a:
 	r=fx991es.Evaluate(a)
 	if r!=None:
-		print (r.pretty())
+		print (fx991es.PrintResult())
 	a=input("> ")
+print("Bye.")
