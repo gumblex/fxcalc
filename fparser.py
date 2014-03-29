@@ -1,27 +1,30 @@
-#!/usr/bin/python3
-"""A calculator module to simulate the function of some natural-display scientific calculators."""
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""A calculator module to simulate the functions of some natural-display scientific calculators."""
 
+# TODO: move descriptions to doc string.
 # type, priority, parameters
 # type:0:Const,1:Function,2:Operator-ltr,3:Operator-rtl
 # 4:Delimiter,5:BracketEnd,6:End
 # Fraction type (Complex):
 #    __    __      __    __
 # a1√c1+d1√e1   a2√c2+d2√e2
-# ----------- + ----------- i
+# ----------- + -----------i
 #      b1            b2
 
 #class parser, errors, frac, cfrac, comp, cmplx, stat, base, eqn, table, matrix, vector, ineq, ratio
 
 #Err type: MathERROR, SyntaxERROR, DimensionERROR, CannotSolve, VariableERROR, TimeOut, ArgumentERROR
 
-__verfunc__ = 0.75
-__verlib__ = 0.6
+__verfunc__ = 0.95
+__verlib__ = 0.76
 __version__ = int(__verfunc__*100 + __verlib__*10)
 
-# TODO: lowercase. ->X. alias. dynamic op list. use decimal instead. copy decimal's function. π
+# TODO: lowercase. ->X. STAT, TABLE, general interactive IO
 
 import math, cmath, random
 from decimal import *
+import traceback
 
 D = Decimal
 
@@ -40,6 +43,7 @@ op={"Rand": [0, 1, 0],
 	"i": [0, 1, 0],
 	"pi": [0, 1, 0],
 	"e": [0, 1, 0],
+	"_": [0, 1, 0],
 	"(": [1, 2, 1],
 	"Pol(": [1, 3, 2],
 	"Rec(": [1, 3, 2],
@@ -47,12 +51,17 @@ op={"Rand": [0, 1, 0],
 	"d/dx(": [1, 3, 2],
 	"Sigma(": [1, 3, 3],
 	"Pi(": [1, 3, 3],
+	"solve(": [1, 3, (1,2,3,4)],
+	"nsolve(": [1, 3, (2,3)],
 	"P(": [1, 3, 1],
 	"Q(": [1, 3, 1],
 	"R(": [1, 3, 1],
 	"sin(": [1, 3, 1],
 	"cos(": [1, 3, 1],
 	"tan(": [1, 3, 1],
+	"cot(": [1, 3, 1],
+	"sec(": [1, 3, 1],
+	"csc(": [1, 3, 1],
 	"asin(": [1, 3, 1],
 	"acos(": [1, 3, 1],
 	"atan(": [1, 3, 1],
@@ -80,8 +89,9 @@ op={"Rand": [0, 1, 0],
 	"Adj(": [1, 3, 1],
 	"Inv(": [1, 3, 1],
 	"Round(": [1, 3, 1],
-	"LCM(": [1, 3, (2,3)],
-	"GCD(": [1, 3, (2,3)],
+	"int(": [1, 3, 1],
+	"LCM(": [1, 3, tuple(range(2,11))],
+	"GCD(": [1, 3, tuple(range(2,11))],
 	"Q...r(": [1, 3, 2],
 	"i~Rand(": [1, 3, 2],
 	"e^": [3, 3, 1],
@@ -134,6 +144,7 @@ opalias_raw={"Rand":["Ran#","rand","ran#"],
 	"d/dx(":["diff("],
 	"Sigma(":["sigma(","Sum(","sum(","∑("],
 	"Pi(":["Product(","product(","∏("], # "pi(" == ["pi","&","("]
+	"nsolve(":["newton("],
 	"P(":["p("],
 	"Q(":["q("],
 	"R(":["r("],
@@ -160,7 +171,7 @@ opalias_raw={"Rand":["Ran#","rand","ran#"],
 	"Rnd(":["rnd(","Round(","round(","float("],
 	"LCM(":["lcm("],
 	"GCD(":["gcd("],
-	"Q...r(":["q...r(","q…r(","qr("],
+	"Q...r(":["q...r(","Q…r(","q…r(","qr("],
 	"i~Rand(":["i~rand(","irand(","RanInt#(","ranint#(","ranint("],
 	"(deg)":["(d)"],
 	"(rad)":["(r)"],
@@ -170,6 +181,7 @@ opalias_raw={"Rand":["Ran#","rand","ran#"],
 	"nPr":["npr"],
 	"nCr":["ncr"],
 	"<":["∠"],
+	"^":["**"],
 	"and":["AND","&&"],
 	"or":["OR","||"],
 	"xor":["XOR"],
@@ -189,20 +201,48 @@ for i in opalias_raw:
 del opalias_raw, i, j
 
 def gcd(*numbers):
-	"""Calculate the Greatest Common Divisor of a and b.
+	"""Calculate the Greatest Common Divisor of the numbers.
 	"""
-	def dgcd(a, b):
-		# from the standard library "fractions"
+	if len(numbers)==2:
+		a, b = numbers
 		while b:
 			a, b = b, a%b
 		return a
-	return abs(reduce(dgcd, numbers))
+	elif len(numbers)<2:
+		raise TypeError('gcd expected at least 2 arguments, got ' + str(len(numbers)))
+	else:
+		val = numbers[0]
+		for i in numbers[1:]:
+			while i:
+				val, i = i, val%i
+		return val
 
 def lcm(*numbers):
-	"""Return lowest common multiple."""
-	def dlcm(a, b):
-		return a * b // gcd(a, b)
-	return abs(reduce(dlcm, numbers, 1))
+	"""Calculate the Lowest Common Multiple of the numbers."""
+	if len(numbers)==2:
+		return numbers[0] * numbers[1] // gcd(numbers[0], numbers[1])
+	elif len(numbers)<2:
+		raise TypeError('lcm expected at least 2 arguments, got ' + str(len(numbers)))
+	else:
+		val = numbers[0]
+		for i in numbers[1:]:
+			val = val * i // gcd(val, i)
+		return val
+
+def pfact(n):
+	"""Returns all the prime factors of a positive integer."""
+	factors = []
+	d = 2
+	while d * d <= n:
+		while n % d == 0:
+			factors.append(d) # supposing you want multiple factors repeated
+			n //= d
+		d += 1
+	if n > 1:
+		factors.append(n)
+	return factors
+
+# is prime
 
 def frange(start, stop, step):
 	while start < stop:
@@ -220,12 +260,16 @@ def reduce(function, iterable, initializer=None):
 	return value
 
 def fmresult(mode='norm', dg=1):
+	# TODO: /#####
 	if mode=='fix':
 		pass
 	elif mode=='sci':
 		pass
 	else:
-		pass
+		if dg==2:
+			pass
+		else: # ==1
+			pass
 
 def pi():
 	"""Compute Pi to the current precision.
@@ -291,6 +335,8 @@ def cos(x):
 
 	"""
 	getcontext().prec += 2
+	if abs(x) > 2 * c_pi:
+		x = x % (2 * c_pi)
 	i, lasts, s, fact, num, sign = 0, 0, 1, 1, 1, 1
 	while s != lasts:
 		lasts = s
@@ -317,8 +363,8 @@ def sin(x):
 
 	"""
 	getcontext().prec += 2
-	#if abs(x) > 2 * pi:
-		#x = x % (2 * pi)
+	if abs(x) > 2 * c_pi:
+		x = x % (2 * c_pi)
 	i, lasts, s, fact, num, sign = 1, 0, x, 1, x, 1
 	while s != lasts:
 		lasts = s
@@ -330,10 +376,33 @@ def sin(x):
 	getcontext().prec -= 2
 	return +s
 
-tan = lambda x : sin(x) / cos(x)
-cot = lambda x : cos(x) / sin(x)
-sec = lambda x : 1 / cos(x)
-csc = lambda x : 1 / sin(x)
+def cosh(x):
+	getcontext().prec += 2
+	i, lasts, s, fact, num = 0, 0, 1, 1, 1
+	while s != lasts:
+		lasts = s
+		i += 2
+		fact *= i * (i-1)
+		num *= x * x
+		s += num / fact
+	getcontext().prec -= 2
+	return +s
+
+def sinh(x):
+	i, lasts, s, fact, num = 1, 0, x, 1, x
+	while s != lasts:
+		lasts = s
+		i += 2
+		fact *= i * (i-1)
+		num *= x * x
+		s += num / fact
+	getcontext().prec -= 2
+	return +s
+
+# tan = lambda x : sin(x) / cos(x)
+# cot = lambda x : cos(x) / sin(x)
+# sec = lambda x : 1 / cos(x)
+# csc = lambda x : 1 / sin(x)
 
 def det(l):
 	n=len(l)
@@ -360,64 +429,119 @@ def det(l):
 	else:
 		return (l[0][0]*l[1][1]-l[0][1]*l[1][0])
 
-class MathERROR(Exception):
+class Calculator:
+	"""The main Calculator class.
+	Err type: MathERROR, SyntaxERROR, DimensionERROR, CannotSolve, VariableERROR, TimeOut, ArgumentERROR"""
+	def __init__(self, mode='comp', vars={}, numtype='frac'):
+		self.vars = {
+		'A': 0, 'B': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 0,
+		'X': 0, 'Y': 0, 'M': 0, 'Ans': 0, '_0': 0, '_1': 0,
+		'_2': 0, '_3': 0, '_4': 0, '_5': 0, '_6': 0, '_7': 0,
+		'_8': 0, '_9': 0, '_10': 0, 'MatA': [], 'MatB': [],
+		'MatC': [], 'MatD': [], 'MatAns': [], 'VctA': [],
+		'VctB': [], 'VctC': [], 'VctD': [], 'VctAns': []}
+		self.mode=mode
+		self.result=None
+		self.format=None ###
+		self.numtype=numtype ###
+		# frac, cfrac, float, int, decimal
+		if vars:
+			self.vars.update(vars)
+	
+	def ntype(self, num, numtype=None):
+		"Converts a number to the proper number type according to self.numtype"
+		if not numtype:
+			numtype= self.numtype
+		if isinstance(num, frac):
+			if numtype =='frac':
+				return num
+			else:
+				n=num.todec()
+		elif isinstance(num, cfrac):
+			if numtype =='cfrac':
+				return num
+			else:
+				n=num.real.todec()
+		elif isinstance(num, str):
+			n=D(num)
+		elif isinstance(num, Decimal):
+			if numtype =='decimal':
+				return +num
+			else:
+				n=num
+		else:
+			n=D(num)
+		if numtype =='frac':
+			return frac(num)
+		elif numtype =='cfrac':
+			return cfrac(num)
+		elif numtype =='float':
+			return float(num)
+		elif numtype =='int':
+			return int(num)
+		elif numtype =='decimal':
+			return +n
+		else:
+			return +n
+
+class MathERROR(Exception,Calculator):
 	'''The Math ERROR type.'''
 	def __init__(self, loc=0):
 		Exception.__init__(self)
 		self.loc = loc
 
-class SyntaxERROR(Exception):
+class SyntaxERROR(Exception,Calculator):
 	'''The Syntax ERROR type.'''
+	# TODO: err info
 	def __init__(self, loc=0):
 		Exception.__init__(self)
 		self.loc = loc
 
-class KbdBreak(Exception):
+class KbdBreak(Exception,Calculator):
 	'''The Keyboard Break ERROR type.'''
 	def __init__(self, loc=0):
 		Exception.__init__(self)
 		self.loc = loc
 
-class DimensionERROR(Exception):
+class DimensionERROR(Exception,Calculator):
 	'''The Dimension ERROR type.'''
 	def __init__(self, loc=0):
 		Exception.__init__(self)
 		self.loc = loc
 
-class CannotSolve(Exception):
+class CannotSolve(Exception,Calculator):
 	"""The Can't Solve ERROR type."""
 	def __init__(self, loc=0):
 		Exception.__init__(self)
 		self.loc = loc
 
-class VariableERROR(Exception):
+class VariableERROR(Exception,Calculator):
 	'''The Variable ERROR type.'''
 	def __init__(self, loc=0):
 		Exception.__init__(self)
 		self.loc = loc
 
-class TimeOut(Exception):
+class TimeOut(Exception,Calculator):
 	'''The Time Out ERROR type.'''
 	def __init__(self, loc=0):
 		Exception.__init__(self)
 		self.loc = loc
 
-class ArgumentERROR(Exception):
+class ArgumentERROR(Exception,Calculator):
 	'''The Argument ERROR type.'''
 	def __init__(self, loc=0):
 		Exception.__init__(self)
 		self.loc = loc
 
-class frac(object):
+class frac(Calculator):
 	"""The basic number type the calculator uses.
 	  _   _
 	a√c+d√e
 	-------
 	   b
-	t (type):
-	 1:int, 2:decimal, 4:frac
+	t (type):	1:int, 2:decimal, 4:frac
 	"""
-	
+
 	def __init__(self, *argn):
 		self.a,self.b,self.c,self.d,self.e = 0,1,1,0,1
 		self.t=1
@@ -480,48 +604,49 @@ class frac(object):
 			self.a,self.b,self.c,self.d,self.e=int(argn[0]),int(argn[1]),int(argn[2]),int(argn[3]),int(argn[4])
 		self.normalize()
 
-	def __float__(self):
-		return float(self.todec())
-	
 	def todec(self):
 		if self.t==4:
 			return (D(self.a) * D(self.c).sqrt() + D(self.d) * D(self.e).sqrt())/D(self.b)
 		else:
 			return D(self.a)
 	
+	def __float__(self):
+		return float(self.todec())
+
 	def __int__(self):
 		if self.t==1:
 			return int(self.a)
 		else:
 			return int(self.todec())
-	
+
 	def __complex__(self):
 		return complex(self.__float__())
-		
+
 	def __round__(self, n=0):
 		return round(self.__float__(),n)
-	
+
 	def __str__(self):
-		return str(self.todec().normalize())
-	
-	def pretty(self, mathdisp=True):
+		return str(self.todec())
+
+	def pretty(self, mathdisp=True, before='', after=''):
 		self.normalize()
 		if self.t==2:
 			# TODO: Different in NORM, FIX, SCI
-			return str(self.todec().normalize())
+			return before + str(self.todec().normalize()) + after
 		elif self.t==1:
-			return str(self.todec())
+			return before + str(self.todec()) + after
 		elif mathdisp:
-			na,nb,nc,nd,ne= str(int(self.a)), str(int(self.b)), str(int(self.c)), str(int(self.d)), str(int(self.e))
+			na,nb,nc,nd,ne = str(int(self.a)), str(int(self.b)), str(int(self.c)), str(int(self.d)), str(int(self.e))
 			l0,l1,lf,l2= '','','',''
+			wbefore, wafter = ' '*len(before), ' '*len(after)
 			if self.d==0:
 				if self.c==1:
 					fracline = max(len(na), len(nb))
 					if self.a>0:
-				
-						return ' ' * (( fracline- len(na) )//2) + na + '\n' + '-' * fracline + '\n' + ' ' * (( fracline- len(nb) )//2) + nb
+
+						return before + ' ' * (( fracline- len(na) )//2) + na + '\n' + '-' * fracline + '\n' + ' ' * (( fracline- len(nb) )//2) + nb + after
 					else:
-						return ' ' * (( fracline- len(str(int(-self.a))) )//2+2) + str(int(-self.a)) + '\n- ' + '-' * fracline + '\n' + ' ' * (( fracline- len(nb) )//2+2) + nb
+						return before + ' ' * (( fracline- len(str(int(-self.a))) )//2+2) + str(int(-self.a)) + '\n- ' + '-' * fracline + '\n' + ' ' * (( fracline- len(nb) )//2+2) + nb + after
 				else:
 					if abs(self.a)!=1:
 						l0=' '*len( str(abs(int(self.a))))
@@ -530,21 +655,21 @@ class frac(object):
 					l0+=' '+'_'*(len(nc))
 					if self.b!=1:
 						fracline = max(len(l1), len(nb))
-						l0= ' ' * (( fracline- len(l1) )//2)+l0
-						l1= ' ' * (( fracline- len(l1) )//2)+l1
-						l2= ' ' * (( fracline- len(nb) )//2)+ nb
-						lf= '-'*fracline
+						l0= ' ' * ((fracline - len(l1))//2)+l0
+						l1= ' ' * ((fracline - len(l1))//2)+l1
+						l2= ' ' * ((fracline - len(nb))//2)+nb
+						lf= '-' * fracline
 						if self.a<0:
 							l0='  '+l0
 							l1='  '+l1
 							lf='- '+lf
 							l2='  '+l2
-						return '%s\n%s\n%s\n%s' % (l0,l1,lf,l2)
+						return '%s\n%s\n%s\n%s' % (wbefore+l0+wafter, wbefore+l1+wafter, before+lf+after, wbefore+l2+wafter)
 					else:
 						if self.a<0:
 							l0=' '+l0
 							l1='-'+l1
-						return '%s\n%s' % (l0,l1)
+						return '%s\n%s' % (wbefore+l0+wafter, before+l1+after)
 			else:
 				if self.a!=1:
 					l0=' '*len(na)
@@ -573,13 +698,13 @@ class frac(object):
 							l1+='√'+ne
 				if self.b!=1:
 					fracline = max(len(l1), len(nb))
-					lf='-'*fracline
-					l0= ' ' * (( fracline- len(l1) )//2)+l0
-					l1= ' ' * (( fracline- len(l1) )//2)+l1
-					l2= ' ' * (( fracline- len(nb) )//2)+nb
-					return '%s\n%s\n%s\n%s' % (l0,l1,lf,l2)
+					lf= '-' * fracline
+					l0= ' ' * ((fracline - len(l1))//2)+l0
+					l1= ' ' * ((fracline - len(l1))//2)+l1
+					l2= ' ' * ((fracline - len(nb))//2)+nb
+					return '%s\n%s\n%s\n%s' % (wbefore+l0+wafter, wbefore+l1+wafter, before+lf+after, wbefore+l2+wafter)
 				else:
-					return '%s\n%s' % (l0,l1)
+					return '%s\n%s' % (wbefore+l0+wafter, before+l1+after)
 		else:
 			self.normalize()
 			if self.c==self.e==1:
@@ -597,17 +722,17 @@ class frac(object):
 				if self.b!=1:
 					rstr="(%s)/%s"% (rstr,str(self.b))
 			# improve
-			return rstr
-	
+			return before + rstr + after
+
 	def __repr__(self):
 		return "frac(%s,%s,%s,%s,%s)" % (self.a,self.b,self.c,self.d,self.e)
-	
+
 	def __lt__(self, other):
 		return self.__float__() < float(other)
-	
+
 	def __le__(self, other):
 		return self.__float__() <= float(other)
-	
+
 	def __eq__(self, other):
 		if other==None:
 			return False
@@ -615,7 +740,7 @@ class frac(object):
 			return self.todec() == frac(other).todec()
 		except:
 			return False
-	
+
 	def __ne__(self, other):
 		if other==None:
 			return True
@@ -623,27 +748,24 @@ class frac(object):
 			return self.todec() != frac(other).todec()
 		except:
 			return True
-	
+
 	def __gt__(self, other):
 		return self.__float__() > float(other)
-	
+
 	def __ge__(self, other):
 		return self.__float__() >= float(other)
-	
+
 	def __hash__(self):
 		return hash(self.todec())
-	
+
 	def __bool__(self):
 		return self.a!=0 and self.c!=0 or self.d!=0 and self.e!=0
 	
-	#TODO: Pure int and decimal operation
 	def __add__(self, other):
 		self.normalize()
 		y=frac(other)
 		if (self.t+y.t) in (2,3,4,6):
 			return frac(self.todec() + y.todec())
-		#if self.c==self.e==y.c==y.e==1:
-			#return frac(self.a*y.b+y.a*self.b,self.b*y.b)
 		co=dict((i,0) for i in (self.c,self.e,y.c,y.e))
 		div=self.b*y.b
 		co[self.c]+=self.a*y.b
@@ -663,18 +785,10 @@ class frac(object):
 		else:
 			n=tuple(co.items())
 			return frac(n[0][1], div, n[0][0], 0, 1)
-		#if n:
-			#return frac(n[0].a*n[1].b+n[1].a*n[0].b, n[0].b*n[1].b, n[0].c, n[0].b*n[1].d+n[1].b*n[0].d, n[0].e)
-		#else:
-			#return frac(self.__float__() + float(other))
-	
+
 	def __sub__(self, other):
 		return self.__add__(frac(other).__neg__())
-		#if n:
-			#return frac(n[0].a*n[1].b-n[1].a*n[0].b, n[0].b*n[1].b, n[0].c, n[1].b*n[0].d-n[0].b*n[1].d, n[0].e)
-		#else:
-			#return frac(self.__float__() - float(other))
-	
+
 	def __mul__(self, other):
 		self.normalize()
 		y=frac(other)
@@ -689,25 +803,12 @@ class frac(object):
 		elif y.d==0:
 			y.e=self.e
 		if self.c==y.c and self.e==y.e:
-			return frac(self.a*y.d+y.a*self.d, 
-			self.b*y.b, self.c*self.e, 
+			return frac(self.a*y.d+y.a*self.d,
+			self.b*y.b, self.c*self.e,
 			self.a*y.a*self.c+self.d*y.d*self.e, 1)
 		else:
 			return frac(self.todec() * y.todec())
 
-		# if self.c==self.e==y.c==y.e==1:
-			# implict *.d==0
-			# return frac(self.a*y.a, self.b*y.b)
-		# elif self.d==y.d==0:
-			# self.e,y.a,y.c,y.d,y.e = y.c,0,self.c,y.a,y.c
-		# n=self.checkcomputable(other)
-		# if n:
-			# return frac(n[0].a*n[1].d+n[1].a*n[0].d, n[0].b*n[1].b, n[0].c*n[0].e, n[0].a*n[1].a*n[0].c+n[0].d*n[1].d*n[0].e, 1)
-		# elif other.c==other.e==1:
-				# fix: numtype
-				# y=frac(other)
-				# return frac(self.a*other.a,self.b*other.b,self.c,self.d*other.a,self.e)
-	
 	def __truediv__(self, other):
 		if not other:
 			raise MathERROR
@@ -725,27 +826,24 @@ class frac(object):
 		elif y.d==0:
 			y.e=self.e
 		if self.c==y.c and self.e==y.e:
-			return frac(n[1].a*n[0].b*n[1].b*n[0].d-n[0].a*n[0].b*n[1].b*n[1].d, 
-			n[1].a**2*n[0].b**2*n[0].c-n[0].b**2*n[1].d**2*n[0].e, 
-			n[0].c*n[0].e, 
+			return frac(n[1].a*n[0].b*n[1].b*n[0].d-n[0].a*n[0].b*n[1].b*n[1].d,
+			n[1].a**2*n[0].b**2*n[0].c-n[0].b**2*n[1].d**2*n[0].e,
+			n[0].c*n[0].e,
 			n[0].a*n[1].a*n[0].b*n[1].b*n[0].c-n[0].b*n[1].b*n[0].d*n[1].d*n[0].e, 1)
 		else:
 			return frac(self.todec() / y.todec())
-		# elif other.c==other.e==1:
-				# y=frac(other)
-				# return frac(self.a*other.b,self.b*other.a,self.c,self.d*other.b,self.e)
-	
+
 	def __floordiv__(self, other):
 		return frac(self.todec() // frac(other).todec())
-	
+
 	def __mod__(self, other):
 		y=frac(other)
 		return frac(self.todec() % y.todec())
-	
+
 	def __divmod__(self, other):
 		y=frac(other)
 		return frac(divmod(self.todec(), y.todec()))
-	
+
 	def __pow__(self, other, modulo=None):
 		if self==other==0:
 			raise MathERROR
@@ -771,61 +869,64 @@ class frac(object):
 				else:
 					return frac(1,self.b,(self.a+self.d)*self.b)
 		else:
-			return pow(self,other,modulo)
-	
+			return pow(self.todec(),frac(other).todec(),modulo)
+
 	def __radd__(self, other):
 		return self.__add__(other)
-	
+
 	def __rsub__(self, other):
 		return self.__sub__(other).__neg__()
-	
+
 	def __rmul__(self, other):
 		return self.__mul__(other)
-	
+
 	def __rtruediv__(self, other):
 		if not self:
 			raise MathERROR
 		y=frac(other)
 		if (self.t+y.t) in (2,3,4,6):
-			return frac(other.todec() / self.todec())
+			return frac(y.todec() / self.todec())
 		else:
 			return self.__mul__(frac(y.a*y.b, y.a**2*y.c-y.d**2*y.e, y.c, y.d*y.b, y.e))
-	
+
 	def __rfloordiv__(self, other):
 		return frac(frac(other).todec() // self.todec())
-	
+
 	def __rmod__(self, other):
 		y=frac(other)
 		return frac(y.todec() % self.todec())
-	
+
 	def __rdivmod__(self, other):
 		y=frac(other)
 		return frac(divmod(y.todec(), self.todec()))
-	
+
 	def __rpow__(self, other):
 		return frac(other).__pow__(self)
-	
+
 	def __neg__(self):
-		return frac(-self.a, self.b, self.c, -self.d, self.e)
-	
+		if self.t==4:
+			return frac(-self.a, self.b, self.c, -self.d, self.e)
+		else:
+			return frac(-self.a)
+
 	def __pos__(self):
 		return self
 
 	def conjugate(self):
 		return self
-	
+
 	def copy(self):
 		return frac(self)
-	
+
 	def __abs__(self):
 		if self.__float__()<0:
 			return self.__neg__()
 		else:
 			return self
-	
+
 	def isfloat(self):
 		return int(self.a)!=self.a
-	
+
 	def simplify(self,num=None):
 		if (self.b,self.c,self.d,self.e)==(1,1,0,1):
 			if int(self.a)==self.a:
@@ -851,7 +952,7 @@ class frac(object):
 				else:
 					d = d + 1
 			return (int(outside_root),int(inside_root))
-		
+
 		if num is None:
 			if self.isfloat():
 				return
@@ -881,7 +982,7 @@ class frac(object):
 				raise ValueError("num must be a frac or a (a,b) tuple")
 		else:
 			raise ValueError("num must be a frac or a (a,b) tuple")
-	
+
 	def normalize(self):
 		if not self.simplify():
 			return
@@ -898,6 +999,8 @@ class frac(object):
 				self.a,self.c,self.d,self.e=self.a+self.d,1,0,1
 			elif self.e>self.c:
 				self.a,self.c,self.d,self.e=self.d,self.e,self.a,self.c
+		if abs(self.b)>10000:
+			self.a,self.b,self.c,self.d,self.e=self.todec(),1,1,0,1
 
 	def limit_denominator(self,fractuple, max_denominator=None):
 		"""Closest Fraction to self with denominator at most max_denominator."""
@@ -922,13 +1025,13 @@ class frac(object):
 		# two integers) the lower bound---i.e., the floor of self, is
 		# taken.
 		if not max_denominator:
-			max_denominator = 10**getcontext().prec
+			max_denominator = 10**(getcontext().prec-2)
 		if len(fractuple) != 2:
 			raise ValueError("fractuple should be (a,b) represents the fraction a/b")
 		if max_denominator < 1:
 			raise ValueError("max_denominator should be at least 1")
 		ngcd=gcd(fractuple[0], fractuple[1])
-		fractuple=(fractuple[0]/ngcd, fractuple[1]/ngcd)
+		fractuple=(fractuple[0]//ngcd, fractuple[1]//ngcd)
 		if fractuple[1] <= max_denominator:
 			return fractuple
 
@@ -950,7 +1053,7 @@ class frac(object):
 		else:
 			return bound1
 
-class cfrac(object):
+class cfrac(Calculator):
 	def __init__(self, real=0, imag=None):
 		if isinstance(real, complex):
 			if imag:
@@ -969,22 +1072,22 @@ class cfrac(object):
 		else:
 			self.real=frac(real)
 			self.imag=frac(0)
-	
+
 	def __float__(self):
 		return float(self.real)
-	
+
 	def todec(self):
 		return self.real.todec()
-	
+
 	def __int__(self):
 		return int(self.real)
-	
+
 	def __complex__(self):
 		return complex(float(self.real),float(self.imag))
-		
+
 	def __round__(self, n=0):
-		return round(float(self.real),n)
-	
+		return round(D(self.real),n)
+
 	def __str__(self):
 		if not self.imag:
 			return str(self.real)
@@ -992,10 +1095,11 @@ class cfrac(object):
 			return str(self.real) + "+" + str(self.imag) + "i"
 		else:
 			return str(self.real) + str(self.imag) + "i"
-	
-	def pretty(self, mathdisp=True):
+
+	def pretty(self, mathdisp=True, before='', after=''):
 		if mathdisp:
-			sr,si=self.real.pretty(True).split(),self.imag.pretty(True).split()
+			sr,si=self.real.pretty(True,before).split(),self.imag.pretty(True).split()
+			wbefore, wafter = ' '*len(before), ' '*len(after)
 			if self.imag:
 				rstr=["","","","",""]
 				if len(sr)==1:
@@ -1013,70 +1117,70 @@ class cfrac(object):
 				maxlen=len(max(rstr, key=len))
 				if len(si)==1:
 					if self.imag>0:
-						rstr[base]+=" "*(maxlen-len(rstr[base])+1)+"+"+si[0]+"i"
+						rstr[base]+=" "*(maxlen-len(rstr[base])+1)+"+"+si[0]+"i"+after
 					else:
-						rstr[base]+=" "*(maxlen-len(rstr[base])+1) + si[0]+"i"
+						rstr[base]+=" "*(maxlen-len(rstr[base])+1) + si[0]+"i"+after
 				elif len(si)==2:
-					rstr[base-1]+=" "*(maxlen-len(rstr[base-1])+1) + si[0]
-					rstr[base]+=" "*(maxlen-len(rstr[base])+1) + si[1]+"i"
+					rstr[base-1]+=" "*(maxlen-len(rstr[base-1])+1) + si[0] + wafter
+					rstr[base]+=" "*(maxlen-len(rstr[base])+1) + si[1] + "i" + after
 				elif len(si)==3:
-					rstr[base-1]+=" "*(maxlen-len(rstr[base-1])+1) + si[0]
-					rstr[base]+=" "*(maxlen-len(rstr[base])+1) + si[1]+"i"
-					rstr[base+1]+=" "*(maxlen-len(rstr[base+1])+1) + si[2]
+					rstr[base-1]+=" "*(maxlen-len(rstr[base-1])+1) + si[0] + wafter
+					rstr[base]+=" "*(maxlen-len(rstr[base])+1) + si[1] +"i" + after
+					rstr[base+1]+=" "*(maxlen-len(rstr[base+1])+1) + si[2] + wafter
 				elif len(si)==4:
-					rstr[base-2]+=" "*(maxlen-len(rstr[base-2])+1) + si[0]
-					rstr[base-1]+=" "*(maxlen-len(rstr[base-1])+1) + si[1]
-					rstr[base]+=" "*(maxlen-len(rstr[base])+1) + si[2]+"i"
-					rstr[base+1]+=" "*(maxlen-len(rstr[base])+1) + si[3]
+					rstr[base-2]+=" "*(maxlen-len(rstr[base-2])+1) + si[0] + wafter
+					rstr[base-1]+=" "*(maxlen-len(rstr[base-1])+1) + si[1] + wafter
+					rstr[base]+=" "*(maxlen-len(rstr[base])+1) + si[2] + "i" + after
+					rstr[base+1]+=" "*(maxlen-len(rstr[base])+1) + si[3] + wafter
 				return "\n".join(l for l in rstr).strip()
 			else:
-				return self.real.pretty(True)
+				return self.real.pretty(True,before,after)
 		else:
 			if not self.imag:
-				return self.real.pretty(False)
+				return self.real.pretty(False,before,after)
 			elif self.imag>0:
-				return self.real.pretty(False)+"+"+self.imag.pretty(False) + "i"
+				return before + self.real.pretty(False)+"+"+self.imag.pretty(False) + "i" + after
 			else:
-				return self.real.pretty(False)+self.imag.pretty(False) + "i"
-	
+				return before + self.real.pretty(False)+self.imag.pretty(False) + "i" + after
+
 	def __repr__(self):
 		return "cfrac(%s,%s)" % (self.real.__repr__(),self.imag.__repr__())
-	
+
 	def __eq__(self, other):
 		try:
 			return self.__complex__() == complex(other)
 		except:
 			return False
-	
+
 	def __ne__(self, other):
 		try:
 			return self.__complex__() != complex(other)
 		except:
 			return True
-	
+
 	def __hash__(self):
 		return hash(self.__complex__())
-	
+
 	def __bool__(self):
 		return self.real!=0 and self.imag!=0
-	
+
 	def __add__(self, other):
 		y=cfrac(other)
 		return cfrac(self.real+y.real, self.imag+y.imag)
-	
+
 	def __sub__(self, other):
 		y=cfrac(other)
 		return cfrac(self.real-y.real, self.imag-y.imag)
-	
+
 	def __mul__(self, other):
 		y=cfrac(other)
 		return cfrac(self.real*y.real-self.imag*y.imag, self.real*y.imag+self.imag*y.real)
-	
+
 	def __truediv__(self, other):
 		y=cfrac(other)
 		div=y.real**2+y.imag**2
 		return cfrac((self.real*y.real+self.imag*y.imag)/div, (self.imag*y.real-self.real*y.imag)/div)
-	
+
 	def __pow__(self, other):
 		sign = lambda x: x and (1, -1)[x<0]
 		if self==other==0:
@@ -1092,105 +1196,72 @@ class cfrac(object):
 			return cfrac(((self.__abs__() + self.real)/2)**.5, sign(self.imag)*((self.__abs__() - self.real)/2)**.5)
 		else:
 			return pow(self,other)
-	
+
 	def __radd__(self, other):
 		return self.__add__(other)
-	
+
 	def __rsub__(self, other):
 		return self.__sub__(other).__neg__()
-	
+
 	def __rmul__(self, other):
 		return self.__mul__(other)
-	
+
 	def __rtruediv__(self, other):
 		if not self:
 			raise MathERROR
 		y=cfrac(other)
 		div=self.real**2+self.imag**2
 		return cfrac((y.real*self.real+y.imag*self.imag)/div, (y.imag*self.real-y.real*self.imag)/div)
-		
+
 	def __rpow__(self, other):
 		return cfrac(other).__pow__(self)
-	
+
 	def __neg__(self):
 		return cfrac(-self.real, -self.imag)
-	
+
 	def __pos__(self):
 		return self
-	
+
 	def conjugate(self):
 		return cfrac(self.real, -self.imag)
-	
+
 	def copy(self):
 		return cfrac(self)
-	
+
 	def __abs__(self):
 		return (self.real**2+self.imag**2)**.5
-	
+
 	def phase(self):
 		pass
-	
+
 	def polar(self):
 		pass
 
 	def isreal(self):
 		return self.imag==0
 
-
-class Parser:
+class Parser(Calculator):
 	def __init__(self, expr=None, vars={}, numtype='frac'):
 		self.vars = {
-		'A': 0, 'B': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 0,  
-		'X': 0, 'Y': 0, 'M': 0, 'Ans': 0, '_0': 0, '_1': 0, 
+		'A': 0, 'B': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 0,
+		'X': 0, 'Y': 0, 'M': 0, 'Ans': 0, '_0': 0, '_1': 0,
 		'_2': 0, '_3': 0, '_4': 0, '_5': 0, '_6': 0, '_7': 0,
-		'_8': 0, '_9': 0, '_10': 0, 'MatA': [], 'MatB': [], 
-		'MatC': [], 'MatD': [], 'MatAns': [], 'VctA': [], 
-		'VctB': [], 'VctC': [], 'VctD': [], 'VctAns': []}
+		'_8': 0, '_9': 0, '_10': 0}
 		self.expr=None
 		self.result=None
 		self.format=None ###
-		self.mode=numtype ###
+		self.numtype=numtype ###
 		# frac, cfrac, float, int, decimal
 		if vars:
 			self.vars.update(vars)
 		if expr:
-			self.expr=expr.strip()
+			self.expr=str(expr).strip()
 
 	def ntype(self, num, numtype=None):
-		"Converts a number to the proper number type according to self.mode"
-		if not numtype:
-			numtype= self.mode
-		if isinstance(num, frac):
-			if numtype =='frac':
-				return num
-			else:
-				n=num.todec()
-		elif isinstance(num, cfrac):
-			if numtype =='cfrac':
-				return num
-			else:
-				n=num.real.todec()
-		elif isinstance(num, str):
-			n=D(num)
-		elif isinstance(num, Decimal):
-			if numtype =='decimal':
-				return +num
-			else:
-				n=num
+		if numtype:
+			return super(Parser, self).ntype(num, numtype)
 		else:
-			n=D(num)
-		if numtype =='frac':
-			return frac(num)
-		elif numtype =='cfrac':
-			return cfrac(num)
-		elif numtype =='float':
-			return float(num)
-		elif numtype =='int':
-			return int(num)
-		elif numtype =='decimal':
-			return +n
-		else:
-			return +n
+			return super(Parser, self).ntype(num, self.numtype)
 
 	def In2Post(self, lstin):
 		opstack=[]
@@ -1243,7 +1314,7 @@ class Parser:
 		return lstout
 
 	def PostEval(self, lstin):
-		'Evaluates the Reverse Polish Expression.'
+		'''Evaluates the Reverse Polish Expression.'''
 		numstack=[]
 		for i in lstin:
 			oper=op.get(i[0])
@@ -1272,8 +1343,14 @@ class Parser:
 							numstack.append((num,i[1]))
 						else:
 							numstack.append((self.ntype(num),i[1]))
-					except KeyboardInterrupt:
+					except (KbdBreak, KeyboardInterrupt):
 						raise KbdBreak(i[1])
+					except MathERROR as ex:
+						raise MathERROR(i[1]+len(i[0])+ex.loc)
+					except SyntaxERROR as ex:
+						raise SyntaxERROR(i[1]+len(i[0])+ex.loc+1)
+					except CannotSolve:
+						raise CannotSolve(i[1])
 					except:
 						raise MathERROR(i[1])
 				else:
@@ -1285,7 +1362,7 @@ class Parser:
 		return numstack[0][0]
 
 	def SplitExpr(self):
-		'Split the expression into numbers and operators.'
+		'''Split the expression into numbers and operators.'''
 		# TODO: Selectable number type.
 		tempnum=''
 		pos=0
@@ -1317,17 +1394,17 @@ class Parser:
 				else:
 					tempnum += i
 					impmulti = True
-			elif i=='E':
-				# TODO: precise E recognition.
-				if i in tempnum:
-					raise SyntaxERROR(pos)
-				else:
-					tempnum += i
-					impmulti = True
 			# TODO: degree m s
 			elif i==' ':
 				pass
 			else:
+				if i in ('E', 'e') and tempnum:
+				# TODO: precise E recognition.
+					if i not in tempnum:
+						tempnum += i
+						impmulti = True
+						pos+=1
+						continue
 				flen=len(expr)-pos
 				oper,var,realop=None,None,None
 				while not oper:
@@ -1350,7 +1427,12 @@ class Parser:
 						raise SyntaxERROR(pos)
 				if tempnum:
 					try:
-						outlist.append((self.ntype(D(tempnum)),pos))
+						if tempnum[-1] in ('E', 'e'):
+							outlist.append((self.ntype(D(tempnum[:-1])),pos-len(tempnum)))
+							outlist.append(('&',pos-len(tempnum)+1))
+							outlist.append((self.ntype(c_e),pos))
+						else:
+							outlist.append((self.ntype(D(tempnum)),pos-len(tempnum)))
 					except:
 						raise SyntaxERROR(pos)
 				if oper:
@@ -1373,15 +1455,215 @@ class Parser:
 				pos+=flen
 				tempnum=''
 			pos+=1
+		pos-=1
 		if tempnum:
 			try:
-				outlist.append((self.ntype(D(tempnum)),pos))
+				if tempnum[-1] in ('E', 'e'):
+					outlist.append((self.ntype(D(tempnum[:-1])),pos-len(tempnum)+1))
+					outlist.append(('&',pos-len(tempnum)+2))
+					outlist.append((self.ntype(c_e),pos))
+				else:
+					outlist.append((self.ntype(D(tempnum)),pos-len(tempnum)+1))
 			except:
 				raise SyntaxERROR(pos)
-		return outlist
+		lastitem = [1,2,1]
+		nout = []
+		for i in outlist:
+			if i[0] in ('+','-'):
+				if lastitem:
+					if lastitem[0] in (1,2,3,4):
+						if i[0]=='-':
+							nout.append(('~', i[1]))
+					else:
+						nout.append(i)
+				else:
+					nout.append(i)
+			else:
+				nout.append(i)
+			lastitem = op.get(i[0])
+		return nout
+
+	# self.vars
+	def diff(self,unknown=0,expr=None,varx='X',numtype=None):
+		if not expr:
+			expr=self.expr
+		x=self.ntype(unknown, "decimal")
+		mindig= (D(1).next_plus()-D(1))*10
+		x1=x - mindig
+		x2=x + mindig
+		getcontext().prec += 2
+		fx1=Parser(expr, {varx: x1}, 'decimal')
+		fx2=Parser(expr, {varx: x2}, 'decimal')
+		f1=fx1.Evaluate(expr, {varx: x1})
+		f2=fx2.Evaluate(expr, {varx: x2})
+		while f1==f2 and mindig!=0:
+			if f1==None:
+				if 'err' in fx1.format:
+					raise fx1.format[2]
+				else:
+					raise SyntaxERROR
+			elif f2==None:
+				if 'err' in fx2.format:
+					raise fx2.format[2]
+				else:
+					raise SyntaxERROR
+			x1=x-mindig
+			x2=x+mindig
+			f1=fx1.Evaluate(expr, {varx: x1})
+			f2=fx2.Evaluate(expr, {varx: x2})
+			mindig=mindig.shift(1)
+		if f1==None:
+			if 'err' in fx1.format:
+				raise fx1.format[2]
+			else:
+				raise SyntaxERROR
+		elif f2==None:
+			if 'err' in fx2.format:
+				raise fx2.format[2]
+			else:
+				raise SyntaxERROR
+		result= (f2-f1)/(x2-x1)
+		getcontext().prec -= 2
+		if numtype:
+			return self.ntype(result, numtype)
+		else:
+			return self.ntype(result)
+
+	# TODO: unified err handling
+	def newton(self,unknown	=0,expr=None,varx='X'):
+		sign = lambda x: x and (1, -1)[x<0]
+		if not expr:
+			expr=self.expr
+		x = self.ntype(unknown, 'decimal')
+		func = expr.split('=')
+		if len(func)==1:
+			pass
+		elif len(func)==2:
+			if func[0] and func[1]:
+				expr = "%s-(%s)" % (func[0], func[1])
+			else:
+				raise SyntaxERROR
+		else:
+			raise SyntaxERROR
+		f1 = Parser(expr, {}, 'decimal')
+		fx = lambda x0: f1.Evaluate(expr, {varx: x0})
+		ddx = lambda x0: self.diff(x0, expr, varx, 'decimal')
+		minprec = (D(1).next_plus()-D(1))*50
+		rmax = 100
+		count = 1
+		ddxx = ddx(x)
+		fxx = fx(x)
+		sgn = sign(fxx)
+		sgnchange = False
+		x -= fxx/ddxx
+		while abs(fxx) > minprec and count < rmax:
+			count += 1
+			ddxx = ddx(x)
+			if not ddxx:
+				x -= sign(x)
+				continue
+			fxx = fx(x)
+			if fxx==None:
+				if 'err' in fx1.format:
+					x -= sign(x)
+					continue
+				else:
+					raise SyntaxERROR
+			if (not sgnchange) and sgn != sign(fxx):
+				sgnchange = True
+			x -= fxx/ddxx
+		if count >= rmax and abs(fxx) > minprec:
+			if sgnchange:
+				rmax = 10000
+			else:
+				rmax = 1000
+				x = -x
+			while abs(fxx) > minprec and count < rmax:
+				count += 1
+				ddxx = ddx(x)
+				if not ddxx:
+					x -=sign(x)
+					continue
+				fxx = fx(x)
+				if fxx==None:
+					if 'err' in fx1.format:
+						x -= sign(x)
+						continue
+					else:
+						raise SyntaxERROR
+				x -= fxx/ddxx
+			if count >= rmax and abs(fxx) > minprec:
+				raise CannotSolve
+		return self.ntype(x)
+
+	def brent(self,unka=-100,unkb=100,expr=None,varx='X'):
+		# "Comments on An Improvement to the Brent's Method"
+		if not expr:
+			expr=self.expr
+		a = self.ntype(unka, 'decimal')
+		b = self.ntype(unkb, 'decimal')
+		minprec = (D(1).next_plus()-D(1))*50
+		s = 0
+		func = expr.split('=')
+		if len(func)==1:
+			pass
+		elif len(func)==2:
+			if func[0] and func[1]:
+				expr = "%s-(%s)" % (func[0], func[1])
+			else:
+				raise SyntaxERROR
+		else:
+			raise SyntaxERROR
+		func = Parser(expr, {}, 'decimal')
+		f = lambda x0: func.Evaluate(expr, {varx: x0})
+		if b < a:
+			a,b = b,a
+		fa = f(a)
+		fb = f(b)
+		# fs = 0
+		if fa*fb > 0:
+			raise MathERROR
+		elif abs(fa) <= minprec:
+			return self.ntype(unka)
+		elif abs(fb) <= minprec:
+			return self.ntype(unkb)
+		count = 1
+		rmax = 1000
+		while not (abs(fa) <= minprec or abs(fb) <= minprec or abs(b-a) <= minprec or count>rmax):
+			c = (a+b)/2
+			fc = f(c)
+			if (fa != fc) and (fb != fc):
+				# Inverse quadratic interpolation
+				s = a*fb*fc/(fa-fb)/(fa-fc) + b*fa*fc/(fb-fa)/(fb-fc) + c*fa*fb/(fc-fa)/(fc-fb)
+				if a < s < b:
+					pass # fs = f(s)
+				else:
+					s = c
+			else:
+				# Secant Rule
+				s = b - fb*(b-a)/(fb-fa)
+				# fs = f(s)
+			if c > s:
+				s,c = c,s
+			if f(c)*f(s) <= 0:
+				a,b = c,s
+			else:
+				if f(a)*f(c) < 0:
+					b = c
+				else:
+					a = s
+			fa = f(a)
+			fb = f(b)
+			count+=1
+		if count > rmax:
+			raise CannotSolve
+		elif fa <= minprec:
+			return self.ntype(a)
+		else:
+			return self.ntype(b)
 
 	def oeval(self,o,a):
-		# should be type-independent	
+		# should be type-independent
 		N=self.ntype
 		if o=="Rand":
 			return random.random()
@@ -1391,6 +1673,8 @@ class Parser:
 			return c_pi # pi()
 		elif o=="e":
 			return c_e # D(1).exp()
+		elif o=="_":
+			return self.vars["Ans"]
 		elif o=="(":
 			return a[0]
 		elif o=="Pol(":
@@ -1403,14 +1687,14 @@ class Parser:
 		elif o=="Rec(":
 			# cfrac
 			x=cmath.rect(a)
-			self.vars['X']= N(x.real)
-			self.vars['Y']= N(x.imag)
+			self.vars['X']=N(x.real)
+			self.vars['Y']=N(x.imag)
 			self.format=('Rec',(x.real,x.imag))
 			return x.real
 		elif o=="integr(":
 			#for i in frange()
-			a0=frac(a[1]).todec()
-			b0=frac(a[2]).todec()
+			a0=N(a[1],"decimal")
+			b0=N(a[2],"decimal")
 			f=0
 			fx = lambda x0: Parser(a[0], {'X': x0}, 'decimal').Evaluate()
 			delta=(b0-a0)/10**(4+(b0-a0).log10())
@@ -1421,29 +1705,72 @@ class Parser:
 			f+=(b0-lastx)/6*(fx(lastx)+4*fx((b0+lastx)/2)+fx(b0))
 			return N(f)
 		elif o=="d/dx(":
-			x=frac(a[1]).todec()
-			x1=x.next_minus()
-			x2=x.next_plus()
-			getcontext().prec += 2
-			f1=Parser(a[0], {'X': x1}, 'decimal').Evaluate()
-			f2=Parser(a[0], {'X': x2}, 'decimal').Evaluate()
-			result= (f2-f1)/(x2-x1)
-			getcontext().prec -= 2
-			return N(result)
+			return self.diff(a[1],a[0],"X")
 		elif o=="Sigma(":
-			x1=int(frac(a[1]))
-			x2=int(frac(a[2]))
+			if a[2]<a[1]:
+				raise ArgumentERROR
+			x1=N(a[1],'int')
+			x2=N(a[2],'int')
+			if a[1]!=x1 or a[2]!=x2:
+				raise ArgumentERROR
 			f=0
 			for x in range(x1,x2+1):
 				f+=Parser(a[0], {'X': x}, 'decimal').Evaluate()
 			return N(f)
 		elif o=="Pi(":
-			x1=int(frac(a[1]))
-			x2=int(frac(a[2]))
-			f=1
+			if a[2]<a[1]:
+				raise ArgumentERROR
+			x1=N(a[1],'int')
+			x2=N(a[2],'int')
+			if a[1]!=x1 or a[2]!=x2:
+				raise ArgumentERROR
+			f = 1
 			for x in range(x1,x2+1):
 				f*=Parser(a[0], {'X': x}, 'decimal').Evaluate()
 			return N(f)
+		elif o=="solve(":
+			if len(a)==1:
+				x = a[0]
+				try:
+					x = self.brent(-10**(getcontext().prec-2), 10**(getcontext().prec-2), a[0])
+				except (KbdBreak, KeyboardInterrupt):
+					raise KbdBreak
+				except:
+					try:
+						x = self.newton(0,a[0])
+					except (KbdBreak, KeyboardInterrupt):
+						raise KbdBreak
+					except:
+						raise CannotSolve
+				self.format=('Solve', (x, 'X'))
+				self.vars['X'] = x
+				return x
+			elif len(a)==2:
+				x = self.newton(a[1],a[0])
+				self.format=('Solve', (x, 'X'))
+				self.vars['X'] = x
+				return x
+			elif len(a)==3:
+				x = self.brent(a[1],a[2],a[0])
+				self.format=('Solve', (x, 'X'))
+				self.vars['X'] = x
+				return x
+			elif len(a)==4:
+				x = self.brent(a[1],a[2],a[0],a[3])
+				self.format=('Solve', (x, a[2]))
+				self.vars[a[2]] = x
+				return x
+		elif o=="nsolve(":
+			if len(a)==2:
+				x = self.newton(a[1],a[0])
+				self.format=('Solve', (x, 'X'))
+				self.vars['X'] = x
+				return x
+			else:
+				x = self.newton(a[1],a[0],a[2])
+				self.format=('Solve', (x, a[2]))
+				self.vars[a[2]] = x
+				return x
 		elif o=="P(":
 			pass
 		elif o=="Q(":
@@ -1451,24 +1778,30 @@ class Parser:
 		elif o=="R(":
 			pass
 		elif o=="sin(":
-			# TODO: use frac instead of float
-			return math.sin(a[0])
+			return sin(N(a[0],'decimal'))
 		elif o=="cos(":
-			return math.cos(a[0])
+			return cos(N(a[0],'decimal'))
 		elif o=="tan(":
-			return math.tan(a[0])
+			return sin(N(a[0],'decimal')) / cos(N(a[0],'decimal'))
+		elif o=="cot(":
+			return cos(N(a[0],'decimal')) / sin(N(a[0],'decimal'))
+		elif o=="sec(":
+			return 1 / cos(N(a[0],'decimal'))
+		elif o=="csc(":
+			return 1 / sin(N(a[0],'decimal'))
 		elif o=="asin(":
+			# TODO: use frac instead of float
 			return math.asin(a[0])
 		elif o=="acos(":
 			return math.acos(a[0])
 		elif o=="atan(":
 			return math.atan(a[0])
 		elif o=="sinh(":
-			return math.sinh(a[0])
+			return sinh(N(a[0],'decimal'))
 		elif o=="cosh(":
-			return math.cosh(a[0])
+			return cosh(N(a[0],'decimal'))
 		elif o=="tanh(":
-			return math.tanh(a[0])
+			return sinh(N(a[0],'decimal')) / cosh(N(a[0],'decimal'))
 		elif o=="asinh(":
 			return math.asinh(a[0])
 		elif o=="acosh(":
@@ -1477,19 +1810,19 @@ class Parser:
 			return math.atanh(a[0])
 		elif o=="log(":
 			if len(a)==1:
-				return D(str(a[0])).log10()
+				return N(a[0],'decimal').log10()
 			else:
-				return D(str(a[0])).ln()/ D(str(a[1])).ln()
+				return N(a[0],'decimal').ln() / N(a[0],'decimal').ln()
 		elif o=="ln(":
-			return D(str(a[0])).ln()
+			return N(a[0],'decimal').ln()
 		elif o=="e^":
-			return D(str(a[0])).exp()
+			return N(a[0],'decimal').exp()
 		elif o=="exp(":
-			return D(str(a[0])).exp()
+			return N(a[0],'decimal').exp()
 		elif o=="10^":
 			return 10**a[0]
 		elif o=="sqrt(":
-			return a[0]**N('.5')
+			return a[0]**N('0.5')
 		elif o=="cbrt(":
 			return a[0]**(N(1)/N(3))
 		elif o=="Arg(":
@@ -1522,11 +1855,13 @@ class Parser:
 			pass
 		elif o=="Round(":
 			# TODO: Norm, Fix, Sci Mode, Complex
-			return N(str(a[0]))
+			return N(str(a[0]), 'decimal')
+		elif o=="int(":
+			return int(a[0])
 		elif o=="LCM(":
-			return lcm(a)
+			return lcm(*a)
 		elif o=="GCD(":
-			return gcd(a)
+			return gcd(*a)
 		elif o=="Q...r(":
 			x=divmod(a[0],a[1])
 			self.vars['C']=x[0]
@@ -1544,11 +1879,11 @@ class Parser:
 			pass
 		elif o=="(deg)":
 			# TODO: Deg, Rad, Gra Mode
-			return a[0]/180*math.pi
+			return a[0]/180*c_pi
 		elif o=="(rad)":
 			return a[0]
 		elif o=="(gra)":
-			return a[0]/200*math.pi
+			return a[0]/200*c_pi
 		elif o=="xroot":
 			return a[1]**(1/N(a[0]))
 		elif o==">t":
@@ -1580,7 +1915,7 @@ class Parser:
 		elif o=="~x2":
 			pass
 		elif o=="&":
-			# "&" == implicit "*"
+			# "&" == (implicit) "*"
 			return a[0] * a[1]
 		elif o=="nPr":
 			return math.factorial(int(a[0]))//math.factorial(int(a[0]-a[1]))
@@ -1637,60 +1972,88 @@ class Parser:
 		else:
 			raise SyntaxERROR
 
-	def Evaluate(self, expr=None):
+	def Evaluate(self, expr=None, vars={}):
 		self.result=None
 		self.format=None
+		self.vars.update(vars)
 		if expr:
-			self.expr=expr.strip()
+			self.expr=str(expr).strip()
 		if not self.expr:
 			return
-		elif self.expr[0]=='#':
-			s=self.expr[1:]
-			if s=='help':
-				rstr='Functions and Operators:\n'
-				count=0
-				for i in op:
-					count+=1
-					if count%4:
-						rstr+=i+'\t'
-					else:
-						rstr+=i+'\n'
-				self.format=('info',  rstr)
-				return 0
+		# TODO: special expressions as functions
+		elif self.expr.lower()=='help':
+			# rewrite this
+			# help:xxx
+			rstr='Functions and Operators:\n'
+			count=0
+			for i in op:
+				count+=1
+				if count%4:
+					rstr+=i+'\t'
+				else:
+					rstr+=i+'\n'
+			self.format=('info', rstr)
+			return None
+		elif self.expr.lower()=="eqn":
+			# TODO: eqn mode
+			pass
 			# TODO: mode, settings
-			return 0 #setting name
+			#setting name
 		elif self.expr=='=':
 			return self.vars['Ans']
-		try:
-			postlist=self.SplitExpr()
+		elif self.expr.lower()=='dms':
+			self.result = self.vars['Ans']
+			self.format = ('dms', (self.vars['Ans'], 0, 0))
+			return self.vars['Ans']
+			# solve('(24-X)*2pi/X*365.256=2pi',22,25
+		elif self.expr.lower()=='fact':
+			ans = self.result = self.vars['Ans']
+			if ans>0 and int(ans)==ans and ans<10**( getcontext().prec - 1):
+				self.format = ('fact', pfact(self.ntype(ans,'int')))
+			else:
+				raise MathERROR
+		else:
 			try:
-				self.result=self.PostEval(self.In2Post(postlist))
-				self.vars['Ans']= self.result
-				return self.result
-				# TODO: better result format, print or report
-			except MathERROR as ex:
-				print ("Math ERROR:\n %s\n %s" % (self.expr, ' '*ex.loc + '^'))
+				postlist=self.SplitExpr()
+				try:
+					self.result=self.PostEval(self.In2Post(postlist))
+					self.vars['Ans']=self.result
+					return self.result
+					# TODO: better result format, print or report
+				except MathERROR as ex:
+					self.format=('err', "Math ERROR:\n %s\n %s" % (self.expr, ' '*ex.loc + '^'), ex)
+					self.result=None
+					raise MathERROR
+				except SyntaxERROR as ex:
+					self.format=('err', "Syntax ERROR:\n %s\n %s" % (self.expr, ' '*ex.loc + '^'), ex)
+					self.result=None
+				except KbdBreak as ex:
+					self.format=('err', "Keyboard Break:\n %s\n %s" % (self.expr, ' '*ex.loc + '^'), ex)
+					self.result=None
+				except DimensionERROR as ex:
+					self.format=('err', "Dimension ERROR:\n %s\n %s" % (self.expr, ' '*ex.loc + '^'), ex)
+					self.result=None
+				except CannotSolve as ex:
+					self.format=('err', "Can't Solve:\n %s\n %s" % (self.expr, ' '*ex.loc + '^'), ex)
+					self.result=None
+				except VariableERROR as ex:
+					self.format=('err', "Variable ERROR:\n %s\n %s" % (self.expr, ' '*ex.loc + '^'), ex)
+					self.result=None
+				except TimeOut as ex:
+					self.format=('err', "Time Out:\n %s\n %s" % (self.expr, ' '*ex.loc + '^'), ex)
+					self.result=None
+				except ArgumentERROR as ex:
+					self.format=('err', "Argument ERROR:\n %s\n %s" % (self.expr, ' '*ex.loc + '^'), ex)
+					self.result=None
 			except SyntaxERROR as ex:
-				print ("Syntax ERROR:\n %s\n %s" % (self.expr, ' '*ex.loc + '^'))
-			except KbdBreak as ex:
-				print ("Keyboard Break:\n %s\n %s" % (self.expr, ' '*ex.loc + '^'))
-			except DimensionERROR as ex:
-				print ("Dimension ERROR:\n %s\n %s" % (self.expr, ' '*ex.loc + '^'))
-			except CannotSolve as ex:
-				print ("Can't Solve:\n %s\n %s" % (self.expr, ' '*ex.loc + '^'))
-			except VariableERROR as ex:
-				print ("Variable ERROR:\n %s\n %s" % (self.expr, ' '*ex.loc + '^'))
-			except TimeOut as ex:
-				print ("Time Out:\n %s\n %s" % (self.expr, ' '*ex.loc + '^'))
-			except ArgumentERROR as ex:
-				print ("Argument ERROR:\n %s\n %s" % (self.expr, ' '*ex.loc + '^'))
-		except SyntaxERROR as ex:
-			print ("Syntax ERROR:\n %s\n %s" % (self.expr, ' '*ex.loc + '^'))
-		return None
-	
+				self.format=('err', "Syntax ERROR:\n %s\n %s" % (self.expr, ' '*ex.loc + '^'), ex)
+				self.result=None
+			return self.result
+
 	def PrintResult(self):
 		# TODO: matrix, vct
 		# TODO: math and line
+		N=self.ntype
 		if self.format:
 			f=self.format[0]
 			r=self.format[1]
@@ -1699,17 +2062,44 @@ class Parser:
 			elif f=='err':
 				return r
 			elif f=='Pol' and self.result==r[0]:
-				return 'r=%s\nθ=%s' % (str(self.ntype(r[0], 'decimal')), str(self.ntype(r[1], 'decimal')))
+				return 'r=%s\nθ=%s' % (str(N(r[0], 'decimal')), str(N(r[1], 'decimal')))
 			elif f=='Rec' and self.result==r[0]:
-				return 'X=%s\nY=%s' % (str(self.ntype(r[0], 'decimal')), str(self.ntype(r[1], 'decimal')))
-		if isinstance(self.result, (str, list, tuple)):
+				return 'X=%s\nY=%s' % (str(N(r[0], 'decimal')), str(N(r[1], 'decimal')))
+			elif f=='Qr' and self.result==r[0]:
+				return 'Q=%s\nR=%s' % (str(N(r[0], 'decimal')), str(N(r[1], 'decimal')))
+			elif f=='Solve' and self.result==r[0]:
+				return '%s=%s' % (r[1], str(N(r[0], 'decimal')))
+			elif f=='dms':
+				x = self.result
+				self.format=('dms', (int(x), int((x*60)%60), (x*3600)%60))
+				r = self.format[1]
+				return "%s°%s’%s”" % (str(N(r[0], 'decimal')), str(N(r[1], 'decimal')), str(N(r[2], 'decimal')))
+			elif f=='fact':
+				factor, count = r[0], 0
+				fl = []
+				for i in r:
+					if i == factor:
+						count+=1
+					else:
+						if count==1:
+							fl.append(str(factor))
+						else:
+							fl.append('(' + str(factor) + '^' + str(count) + ')')
+						factor=i
+						count=1
+				if count==1:
+					fl.append(str(factor))
+				else:
+					fl.append('(' + str(factor) + '^' + str(count) + ')')
+				return '*'.join(i for i in fl)
+		elif isinstance(self.result, (str, list, tuple)):
 			return str(self.result)
 		elif self.expr=='=':
-			return str(self.ntype(self.vars['Ans'],'decimal'))
-		elif self.mode=='decimal':
-			return str(self.ntype(self.result,'decimal'))
-		elif self.mode=='frac':
-			if self.result==0 or abs(float(self.result)) > 1e6:
+			return str(N(self.vars['Ans'],'decimal'))
+		elif self.numtype=='decimal':
+			return str(N(self.result,'decimal'))
+		elif self.numtype=='frac':
+			if self.result==0 or abs(N(self.result, 'float')) > 1e6:
 				return frac(self.result).pretty()
 			piratio= frac(self.result/c_pi)
 			if piratio.t==2:
@@ -1717,6 +2107,9 @@ class Parser:
 			else:
 				rstr= piratio.pretty()
 				rl=rstr.split()
+				if not piratio:
+					return frac(self.result).pretty()
+				# use before after
 				if piratio == 1:
 					return 'π'
 				elif piratio ==-1:
@@ -1729,21 +2122,26 @@ class Parser:
 				elif len(rl)==4:
 					rl[2]+=' π'
 					return '\n'.join(l for l in rl)
-		elif self.mode=='cfrac':
+		elif self.numtype=='cfrac':
 			return cfrac(self.result).pretty()
-		elif self.mode=='float':
+		elif self.numtype=='float':
 			return str(float(self.result))
-		elif self.mode=='int':
+		elif self.numtype=='int':
 			return str(int(self.result))
 		elif self.result == None:
 			return ''
 
-fx991es = Parser()
-print ("== F-Calc %s ==\nuse the LineIO expressions of Casio fx-???ES/MS or Canon f-7??SGA for calculation." % __version__)
-a=input("> ")
-while a:
-	r=fx991es.Evaluate(a)
-	if r!=None:
-		print (fx991es.PrintResult())
+def main():
+	fx991es = Parser()
+	print ("== F-Calc %s ==\nuse the LineIO expressions of Casio fx-???ES/MS or Canon f-7??SGA for calculation." % __version__)
 	a=input("> ")
-print("Bye.")
+	while a:
+		r=fx991es.Evaluate(a)
+		if r!=None or fx991es.format:
+			print (fx991es.PrintResult())
+		a=input("> ")
+	print("Bye.")
+	return 0
+
+if __name__ == '__main__':
+	main()
