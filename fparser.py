@@ -20,7 +20,7 @@ __verfunc__ = 0.95
 __verlib__ = 0.76
 __version__ = int(__verfunc__*100 + __verlib__*10)
 
-# TODO: lowercase. ->X. STAT, TABLE, general interactive IO
+# TODO: ->X. STAT, TABLE, general interactive IO
 
 import math, cmath, random
 from decimal import *
@@ -1085,8 +1085,12 @@ class cfrac(Calculator):
 				self.real=frac(real.real)
 				self.imag=frac(real.imag)
 		else:
-			self.real=frac(real)
-			self.imag=frac(0)
+			if imag:
+				self.real=frac(real)
+				self.imag=frac(imag)
+			else:
+				self.real=frac(real)
+				self.imag=frac(0)
 
 	def __float__(self):
 		return float(self.real)
@@ -1159,7 +1163,7 @@ class cfrac(Calculator):
 				return before + self.real.pretty(False)+self.imag.pretty(False) + "i" + after
 
 	def __repr__(self):
-		return "cfrac(%s,%s)" % (self.real.__repr__(),self.imag.__repr__())
+		return "cfrac(%s,%s)" % (repr(self.real),repr(self.imag))
 
 	def __eq__(self, other):
 		try:
@@ -1254,6 +1258,158 @@ class cfrac(Calculator):
 
 	def isreal(self):
 		return self.imag==0
+
+class dcomplex(Calculator):
+	"""Complex numbers use Decimal."""
+	def __init__(self, real=0, imag=None):
+		if isinstance(real, complex):
+			if imag:
+				self.real=Decimal(real.real)
+				self.imag=Decimal(imag)
+			else:
+				self.real=Decimal(real.real)
+				self.imag=Decimal(real.imag)
+		elif isinstance(real, cfrac):
+			if imag:
+				self.real=self._ntodec(real.real)
+				self.imag=self._ntodec(imag)
+			else:
+				self.real=self._ntodec(real.real)
+				self.imag=self._ntodec(real.imag)
+		else:
+			if imag:
+				self.real=self._ntodec(real)
+				self.imag=self._ntodec(imag)
+			else:
+				self.real=self._ntodec(real)
+				self.imag=Decimal(0)
+
+	def _ntodec(self, num):
+		return super(Parser, self).ntype(num, 'decimal')
+
+	def __float__(self):
+		return float(self.real)
+
+	def todec(self):
+		return self.real
+
+	def __int__(self):
+		return int(self.real)
+
+	def __complex__(self):
+		return complex(float(self.real),float(self.imag))
+
+	def __round__(self, n=0):
+		return round(self.real,n)
+
+	def __str__(self):
+		if not self.imag:
+			return str(self.real)
+		elif self.imag>0:
+			return str(self.real) + "+" + str(self.imag) + "i"
+		else:
+			return str(self.real) + str(self.imag) + "i"
+
+	def pretty(self, mathdisp=False, before='', after=''):
+		return before + self.__str__() + after
+
+	def __repr__(self):
+		return "dcomplex(%s,%s)" % (repr(self.real),repr(self.imag))
+
+	def __eq__(self, other):
+		try:
+			return self.__complex__() == complex(other)
+		except:
+			return False
+
+	def __ne__(self, other):
+		try:
+			return self.__complex__() != complex(other)
+		except:
+			return True
+
+	def __hash__(self):
+		return hash(self.__complex__())
+
+	def __bool__(self):
+		return self.real!=0 and self.imag!=0
+
+	def __add__(self, other):
+		y=dcomplex(other)
+		return dcomplex(self.real+y.real, self.imag+y.imag)
+
+	def __sub__(self, other):
+		y=dcomplex(other)
+		return dcomplex(self.real-y.real, self.imag-y.imag)
+
+	def __mul__(self, other):
+		y=dcomplex(other)
+		return dcomplex(self.real*y.real-self.imag*y.imag, self.real*y.imag+self.imag*y.real)
+
+	def __truediv__(self, other):
+		y=dcomplex(other)
+		div=y.real**2+y.imag**2
+		return dcomplex((self.real*y.real+self.imag*y.imag)/div, (self.imag*y.real-self.real*y.imag)/div)
+
+	def __pow__(self, other):
+		sign = lambda x: x and (1, -1)[x<0]
+		if self==other==0:
+			raise MathERROR
+		if int(other)==other:
+			result=dcomplex(1)
+			for i in range(abs(other)):
+				result*=self
+			if other<0:
+				result=1/result
+			return result
+		elif other==.5:
+			return dcomplex(((self.__abs__() + self.real)/2)**.5, sign(self.imag)*((self.__abs__() - self.real)/2)**.5)
+		else:
+			return pow(self,other)
+
+	def __radd__(self, other):
+		return self.__add__(other)
+
+	def __rsub__(self, other):
+		return self.__sub__(other).__neg__()
+
+	def __rmul__(self, other):
+		return self.__mul__(other)
+
+	def __rtruediv__(self, other):
+		if not self:
+			raise MathERROR
+		y=dcomplex(other)
+		div=self.real**2+self.imag**2
+		return dcomplex((y.real*self.real+y.imag*self.imag)/div, (y.imag*self.real-y.real*self.imag)/div)
+
+	def __rpow__(self, other):
+		return dcomplex(other).__pow__(self)
+
+	def __neg__(self):
+		return dcomplex(-self.real, -self.imag)
+
+	def __pos__(self):
+		return self
+
+	def conjugate(self):
+		return dcomplex(self.real, -self.imag)
+
+	def copy(self):
+		return dcomplex(self)
+
+	def __abs__(self):
+		return (self.real**2+self.imag**2)**.5
+
+	def phase(self):
+		pass
+
+	def polar(self):
+		pass
+
+	def isreal(self):
+		return self.imag==0
+
 
 class Parser(Calculator):
 	def __init__(self, expr=None, vars={}, numtype='frac'):
@@ -1414,7 +1570,7 @@ class Parser(Calculator):
 				pass
 			else:
 				if i in ('E', 'e') and tempnum:
-				# TODO: precise E recognition.
+				# TODO: precise E recognition. Case-sensitive. 4E-5 != 5e-5
 					if i not in tempnum:
 						tempnum += i
 						impmulti = True
@@ -1442,7 +1598,11 @@ class Parser(Calculator):
 						raise SyntaxERROR(pos)
 				if tempnum:
 					try:
-						if tempnum[-1] in ('E', 'e'):
+						if tempnum[-1] == 'E':
+							outlist.append((self.ntype(D(tempnum[:-1])),pos-len(tempnum)))
+							outlist.append(('&',pos-len(tempnum)+1))
+							outlist.append((self.vars['E'],pos))
+						elif tempnum[-1] == 'e':
 							outlist.append((self.ntype(D(tempnum[:-1])),pos-len(tempnum)))
 							outlist.append(('&',pos-len(tempnum)+1))
 							outlist.append((self.ntype(c_e),pos))
@@ -2038,6 +2198,9 @@ class Parser(Calculator):
 			calc.Evaluate()
 			self.format = calc.format
 			return self.vars['Ans']
+		elif self.expr.lower() =='decimal':
+			self.numtype='decimal'
+			self.format=('info', 'Set to decimal number mode.')
 		elif self.expr.lower() =='real':
 			self.numtype='frac'
 			self.format=('info', 'Set to real number mode.')
@@ -2125,7 +2288,7 @@ class Parser(Calculator):
 					fl.append('(' + str(factor) + '^' + str(count) + ')')
 				return '*'.join(i for i in fl)
 			elif f=='table':
-				pass ######(8###
+				pass #####
 				return ""
 		elif isinstance(self.result, (str, list, tuple)):
 			return str(self.result)
