@@ -17,14 +17,14 @@
 #Err type: MathERROR, SyntaxERROR, DimensionERROR, CannotSolve, VariableERROR, TimeOut, ArgumentERROR
 
 __verfunc__ = 0.95
-__verlib__ = 0.76
+__verlib__ = 0.78
 __version__ = int(__verfunc__*100 + __verlib__*10)
 
 # TODO: ->X. STAT, TABLE, general interactive IO
 
 import math, cmath, random
 from decimal import *
-import traceback
+import readline
 
 D = Decimal
 
@@ -168,7 +168,7 @@ opalias_raw={"Rand":["Ran#","rand","ran#"],
 	"Ide(":["ide("],
 	"Adj(":["adj("],
 	"Inv(":["inv("],
-	"Rnd(":["rnd(","Round(","round(","float("],
+	"Round(":["rnd(","Rnd(","round(","float("],
 	"factor(":["fact(","pfactor(","pfact("],
 	"LCM(":["lcm("],
 	"GCD(":["gcd("],
@@ -1116,6 +1116,8 @@ class cfrac(Calculator):
 			return str(self.real) + str(self.imag) + "i"
 
 	def pretty(self, mathdisp=True, before='', after=''):
+		# TODO: use before after
+		# sq(i
 		if mathdisp:
 			sr,si=self.real.pretty(True,before).split(),self.imag.pretty(True).split()
 			wbefore, wafter = ' '*len(before), ' '*len(after)
@@ -2044,7 +2046,7 @@ class Parser(Calculator):
 			self.format=('Qr',x)
 			return x[0]
 		elif o=="i~Rand(":
-			return round(random.uniform(int(a[0]),int(a[1])))
+			return random.randrange(a[0],a[1])
 		elif o=="table(":
 			tbl = []
 			if len(a)==2:
@@ -2218,7 +2220,7 @@ class Parser(Calculator):
 				except MathERROR as ex:
 					self.format=('err', "Math ERROR:\n %s\n %s" % (self.expr, ' '*ex.loc + '^'), ex)
 					self.result=None
-					raise MathERROR
+					# raise MathERROR
 				except SyntaxERROR as ex:
 					self.format=('err', "Syntax ERROR:\n %s\n %s" % (self.expr, ' '*ex.loc + '^'), ex)
 					self.result=None
