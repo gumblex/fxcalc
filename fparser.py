@@ -2339,7 +2339,10 @@ def main():
 		r=fx991es.Evaluate(a)
 		if r!=None or fx991es.format:
 			print (fx991es.PrintResult())
-		a=input("> ")
+		try:
+			a=input("> ")
+		except EOFError:
+			break
 	print("Bye.")
 	return 0
 
