@@ -55,6 +55,7 @@ op={"Rand": [0, 1, 0],
 	"P(": [1, 3, 1],
 	"Q(": [1, 3, 1],
 	"R(": [1, 3, 1],
+	"Mod(": [1, 3, 2],
 	"sin(": [1, 3, 1],
 	"cos(": [1, 3, 1],
 	"tan(": [1, 3, 1],
@@ -148,6 +149,7 @@ opalias_raw={"Rand":["Ran#","rand","ran#"],
 	"P(":["p("],
 	"Q(":["q("],
 	"R(":["r("],
+	"Mod(":["mod("],
 	"asin(":["arcsin(","sin-1("],
 	"acos(":["arccos(","cos-1("],
 	"atan(":["arctan(","tan-1("],
@@ -1439,8 +1441,8 @@ class Parser(Calculator):
 	def In2Post(self, lstin):
 		opstack=[]
 		lstout=[]
-		for id in range(len(lstin)):
-			i=lstin[id]
+		for key in range(len(lstin)):
+			i=lstin[key]
 			itype=op.get(i[0])
 			if itype:
 				if itype[0]==0:
@@ -1462,7 +1464,7 @@ class Parser(Calculator):
 						while op[opstack[-1][0]][0]!=1:
 							lstout.append (opstack.pop())
 					except IndexError:
-						raise SyntaxERROR(id)
+						raise SyntaxERROR(key)
 					if len(opstack[-1]) ==2:
 						opstack[-1] += (2,)
 					else:
@@ -1472,12 +1474,14 @@ class Parser(Calculator):
 						while op[opstack[-1][0]][0]!=1:
 							lstout.append (opstack.pop())
 					except IndexError:
-						raise SyntaxERROR(id)
+						raise SyntaxERROR(key)
 					lstout.append (opstack.pop())
 				elif itype[0]==6:
 					while opstack:
 						lstout.append (opstack.pop())
 					lstout.append(i)
+			elif i[0] in self.vars:
+				lstout.append(self.vars[i[0]])
 			else:
 				lstout.append(i)
 		while opstack:
@@ -1488,51 +1492,78 @@ class Parser(Calculator):
 
 	def PostEval(self, lstin):
 		'''Evaluates the Reverse Polish Expression.'''
-		numstack=[]
+		if not lstin:
+			return None
+		lstsp = []
+		lsttemp = []
 		for i in lstin:
-			oper=op.get(i[0])
-			if oper:
-				if oper[0]==1 and oper[2]!=1:
-					if len(i)==2:
-						pnum=1
-					else:
-						pnum=i[2]
-					if isinstance(oper[2], tuple):
-						if pnum not in oper[2]:
-							raise SyntaxERROR(i[1])
-					elif pnum != oper[2]:
-						raise SyntaxERROR(i[1])
-					opnum=pnum
-				else:
-					opnum=oper[2]
-				if len(numstack)>=opnum:
-					argl=[]
-					for n in range(opnum):
-						argl.append (numstack.pop()[0])
-					argl.reverse()
-					try:
-						num= self.oeval(i[0],argl)
-						if isinstance(num, (list, tuple)):
-							numstack.append((num,i[1]))
-						else:
-							numstack.append((self.ntype(num),i[1]))
-					except (KbdBreak, KeyboardInterrupt):
-						raise KbdBreak(i[1])
-					except MathERROR as ex:
-						raise MathERROR(i[1]+len(i[0])+ex.loc)
-					except SyntaxERROR as ex:
-						raise SyntaxERROR(i[1]+len(i[0])+ex.loc+1)
-					except CannotSolve:
-						raise CannotSolve(i[1])
-					except:
-						raise MathERROR(i[1])
+			if i[0] == ':':
+				if lsttemp:
+					lstsp.append(lsttemp)
 				else:
 					raise SyntaxERROR(i[1])
+				lsttemp = []
 			else:
-				numstack.append(i)
-		if len(numstack)>1:
-			raise SyntaxERROR( numstack[-1][1] )
-		return numstack[0][0]
+				lsttemp.append(i)
+		if lsttemp:
+			lstsp.append(lsttemp)
+		else:
+			raise SyntaxERROR(i[1])
+		lstresult = []
+		for lst in lstsp:
+			numstack=[]
+			for i in lst:
+				oper=op.get(i[0])
+				if oper:
+					if oper[0]==1 and oper[2]!=1:
+						if len(i)==2:
+							pnum=1
+						else:
+							pnum=i[2]
+						if isinstance(oper[2], tuple):
+							if pnum not in oper[2]:
+								raise SyntaxERROR(i[1])
+						elif pnum != oper[2]:
+							raise SyntaxERROR(i[1])
+						opnum=pnum
+					else:
+						opnum=oper[2]
+					if len(numstack)>=opnum:
+						argl=[]
+						for n in range(opnum):
+							argl.append (numstack.pop()[0])
+						argl.reverse()
+						try:
+							num= self.oeval(i[0],argl)
+							if isinstance(num, (list, tuple)):
+								numstack.append((num,i[1]))
+							else:
+								numstack.append((self.ntype(num),i[1]))
+						except KbdBreak as ex:
+							raise KbdBreak(i[1]+ex.loc+1)
+						except KeyboardInterrupt:
+							raise KbdBreak(i[1])
+						except MathERROR as ex:
+							raise MathERROR(i[1]+len(i[0])+ex.loc)
+						except SyntaxERROR as ex:
+							raise SyntaxERROR(i[1]+len(i[0])+ex.loc+1)
+						except CannotSolve:
+							raise CannotSolve(i[1])
+						except:
+							raise MathERROR(i[1])
+					else:
+						raise SyntaxERROR(i[1])
+				#elif i[0] in self.vars:
+				#	numstack.append((self.vars[i[0]], i[1]))
+				else:
+					numstack.append(i)
+			if len(numstack) > 1:
+				raise SyntaxERROR(numstack[-1][1])
+			lstresult.append(numstack[0][0])
+		if len(lstresult) == 1:
+			return lstresult[0]
+		else:
+			return lstresult
 
 	def SplitExpr(self):
 		'''Split the expression into numbers and operators.'''
@@ -1595,7 +1626,8 @@ class Parser(Calculator):
 						var=self.vars.get(expr[pos:pos+flen])
 						flen-=1
 					if var!=None:
-						realop=var
+						# realop=var
+						realop=expr[pos:pos+flen+1]
 					else:
 						raise SyntaxERROR(pos)
 				if tempnum:
@@ -1603,7 +1635,8 @@ class Parser(Calculator):
 						if tempnum[-1] == 'E':
 							outlist.append((self.ntype(D(tempnum[:-1])),pos-len(tempnum)))
 							outlist.append(('&',pos-len(tempnum)+1))
-							outlist.append((self.vars['E'],pos))
+							# outlist.append((self.vars['E'],pos))
+							outlist.append(('E',pos))
 						elif tempnum[-1] == 'e':
 							outlist.append((self.ntype(D(tempnum[:-1])),pos-len(tempnum)))
 							outlist.append(('&',pos-len(tempnum)+1))
@@ -1648,7 +1681,7 @@ class Parser(Calculator):
 		for i in outlist:
 			if i[0] in ('+','-'):
 				if lastitem:
-					if lastitem[0] in (1,2,4):
+					if lastitem[0] in (1,3,4):
 						if i[0]=='-':
 							nout.append(('~', i[1]))
 					else:
@@ -1840,7 +1873,9 @@ class Parser(Calculator):
 	def oeval(self,o,a):
 		# should be type-independent
 		N=self.ntype
-		if o=="Rand":
+		if o in self.vars:
+			return self.vars[o]
+		elif o=="Rand":
 			return random.random()
 		elif o=="i":
 			return cfrac(0,1)
@@ -1952,6 +1987,8 @@ class Parser(Calculator):
 			pass
 		elif o=="R(":
 			pass
+		elif o=="Mod(":
+			return a[0]%a[1]
 		elif o=="sin(":
 			return sin(N(a[0],'decimal'))
 		elif o=="cos(":
@@ -2109,7 +2146,7 @@ class Parser(Calculator):
 		elif o=="nPr":
 			return math.factorial(int(a[0]))//math.factorial(int(a[0]-a[1]))
 		elif o=="nCr":
-			return math.factorial(int(a[0]))//(math.factorial(int(a[1]))*math.factorial(int(a[0]-a[1])))
+			return math.factorial(int(a[0]))//math.factorial(int(a[1]))//math.factorial(int(a[0]-a[1]))
 		elif o=="<":
 			# TODO: use frac instead of float
 			return cmath.rect(r, phi)
@@ -2156,7 +2193,6 @@ class Parser(Calculator):
 			self.format=('ABi',x)
 			return a[0]
 		elif o==":":
-			# TODO: Eval left and right
 			pass
 		else:
 			raise SyntaxERROR
@@ -2213,6 +2249,7 @@ class Parser(Calculator):
 			try:
 				postlist=self.SplitExpr()
 				try:
+					### TODO: Multi result
 					self.result=self.PostEval(self.In2Post(postlist))
 					self.vars['Ans']=self.result
 					return self.result
@@ -2224,6 +2261,7 @@ class Parser(Calculator):
 				except SyntaxERROR as ex:
 					self.format=('err', "Syntax ERROR:\n %s\n %s" % (self.expr, ' '*ex.loc + '^'), ex)
 					self.result=None
+					raise SyntaxERROR
 				except KbdBreak as ex:
 					self.format=('err', "Keyboard Break:\n %s\n %s" % (self.expr, ' '*ex.loc + '^'), ex)
 					self.result=None
@@ -2245,6 +2283,7 @@ class Parser(Calculator):
 			except SyntaxERROR as ex:
 				self.format=('err', "Syntax ERROR:\n %s\n %s" % (self.expr, ' '*ex.loc + '^'), ex)
 				self.result=None
+				raise SyntaxERROR
 			return self.result
 
 	def PrintResult(self):
