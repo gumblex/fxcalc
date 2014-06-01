@@ -132,7 +132,7 @@ op={"Rand": [0, 1, 0],
 	")": [5, 15, 1],
 	"M+": [6, 15, 1],
 	"M-": [6, 15, 1],
-	"->": [6, 15, 1],
+	"->": [6, 15, 2],
 	">rtheta": [6, 15, 1],
 	">a+bi": [6, 15, 1],
 	":": [6, 15, 2],
@@ -1479,9 +1479,14 @@ class Parser(Calculator):
 				elif itype[0]==6:
 					while opstack:
 						lstout.append (opstack.pop())
-					lstout.append(i)
+					if i[0] == '->':
+						lstout.append(lstin[-1])
+						lstout.append(i)
+						break
+					else:
+						lstout.append(i)
 			elif i[0] in self.vars:
-				lstout.append(self.vars[i[0]])
+				lstout.append((self.vars[i[0]], i[1]))
 			else:
 				lstout.append(i)
 		while opstack:
@@ -1563,7 +1568,8 @@ class Parser(Calculator):
 		if len(lstresult) == 1:
 			return lstresult[0]
 		else:
-			return lstresult
+			self.format(':',lstresult)
+			return lstresult[0]
 
 	def SplitExpr(self):
 		'''Split the expression into numbers and operators.'''
@@ -1926,6 +1932,7 @@ class Parser(Calculator):
 			f=0
 			for x in range(x1,x2+1):
 				f+=Parser(a[0], self.vars, 'decimal').Evaluate(a[0], {'X': x})
+				# print((f,))
 			return N(f)
 		elif o=="Pi(":
 			if a[2]<a[1]:
@@ -2265,6 +2272,7 @@ class Parser(Calculator):
 				except KbdBreak as ex:
 					self.format=('err', "Keyboard Break:\n %s\n %s" % (self.expr, ' '*ex.loc + '^'), ex)
 					self.result=None
+					# raise KbdBreak
 				except DimensionERROR as ex:
 					self.format=('err', "Dimension ERROR:\n %s\n %s" % (self.expr, ' '*ex.loc + '^'), ex)
 					self.result=None
@@ -2348,7 +2356,7 @@ class Parser(Calculator):
 				rl=rstr.split()
 				if not piratio:
 					return frac(self.result).pretty()
-				# use before after
+				#TODO: use before after
 				if piratio == 1:
 					return 'π'
 				elif piratio ==-1:
