@@ -100,6 +100,17 @@ def lcm(*numbers):
         return val
 
 
+def resplit(regex, string):
+    pos = 0
+    for m in regex.finditer(string):
+        if m.start(0) != pos:
+            yield string[pos:m.start(0)]
+        yield string[m.start(0):m.end(0)]
+        pos = m.end(0)
+    if pos < len(string) - 1:
+        yield string[pos:]
+
+
 class Calculator:
 
     # type, priority, parameters
@@ -128,6 +139,7 @@ class Calculator:
     const = {
         "i": 1j,
         "pi": math.pi,
+        "π": math.pi,
         "e": math.e
     }
 
@@ -198,22 +210,21 @@ class Calculator:
 
     ansvar = '_'
 
-    re_float = re.compile(r'^[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?i?$')
+    re_float = re.compile(r'([0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?i?)')
     re_delim = re.compile(
         '(%s)' % ('|'.join(map(re.escape, operators.keys()))))
+    re_split = re.compile(
+        r'([0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?i?|%s)' % ('|'.join(map(re.escape, operators.keys()))))
 
     def __init__(self):
         self.vars = {self.ansvar: 0}
 
     def splitexpr(self, expr):
         pos = 0
-        for s in self.re_delim.split(expr):
+        for s in resplit(self.re_split, expr):
             s = s.lower()
             if not s.strip():
                 pass
-            elif self.re_delim.match(s):
-                val = self.functions[s][0] if s in self.functions else None
-                yield Token(s, pos, *self.operators[s], value=val)
             elif self.re_float.match(s):
                 i = 1
                 if s[-1] == 'i':
@@ -223,6 +234,9 @@ class Calculator:
                     yield Token(s, pos, 'num', value=float(s) * i)
                 else:
                     yield Token(s, pos, 'num', value=int(s) * i)
+            elif self.re_delim.match(s):
+                val = self.functions[s][0] if s in self.functions else None
+                yield Token(s, pos, *self.operators[s], value=val)
             elif s in self.const:
                 yield Token(s, pos, 'const', value=self.const[s])
             elif s in self.vars:
@@ -238,12 +252,10 @@ class Calculator:
         opstack = []
         lastt = None
         for key, token in enumerate(lstin):
-            # type: 0:Whitespace, 1:Function, 2:Operator-ltr, 3:Operator-rtl
-            # 4:Delimiter, 5:BracketEnd
             if token.type == '(':
                 opstack.append(token)
             elif token.type.startswith('op'):
-                if token.name in '+-' and (lastt is None or lastt.type in ('(', 'op_r', ',')):
+                if token.name in '+-' and (lastt is None or lastt.type in ('(', 'op_l', 'op_r', ',')):
                     if token.name == '+':
                         token.name = 'pos'
                         token.value = operator.pos
@@ -255,7 +267,6 @@ class Calculator:
                     token.argnum = 1
                 if opstack:
                     tok2 = opstack[-1]
-                    #print(itype, tok2)
                     while (tok2.type.startswith('op') and
                            (token.type[-1] == 'l' and token.priority >= tok2.priority or
                             token.type[-1] == 'r' and token.priority > tok2.priority)):
@@ -278,7 +289,7 @@ class Calculator:
                 except IndexError:
                     raise SyntaxError(key)
                 op = opstack.pop()
-                if opstack[-1].type == 'fn':
+                if opstack and opstack[-1].type == 'fn':
                     yield opstack.pop()
             elif token.type in ('const', 'var'):
                 yield token
@@ -287,7 +298,6 @@ class Calculator:
             else:
                 yield token
             lastt = token
-            #print(token, lstout, opstack)
         while opstack:
             # Don't check if there is a parenthesis or a function.
             # Ignored right parenthesis is allowed.
@@ -369,6 +379,7 @@ def main():
             a = input("> ")
         except (KeyboardInterrupt, EOFError):
             break
+        #ret = calc.eval(a)
         ret = calc.pretty(a)
         if ret:
             print(ret)
