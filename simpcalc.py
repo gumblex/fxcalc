@@ -60,7 +60,8 @@ class Token:
         self.value = value
 
     def __repr__(self):
-        return 'Token(%s)' % ', '.join(map(repr, (self.name, self.pos, self.type, self.priority, self.argnum, self.value)))
+        return 'Token(%s)' % ', '.join(map(
+            repr, (self.name, self.pos, self.type, self.priority, self.argnum, self.value)))
 
 
 def adapt_cmath(funcname):
@@ -229,9 +230,10 @@ class Calculator:
     re_split = re.compile(
         r'([0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?i?|%s)' % ('|'.join(map(re.escape, operators.keys()))))
 
-    def __init__(self):
+    def __init__(self, ansvar=None, autoclose=False):
+        self.ansvar = ansvar or self.ansvar
         self.vars = {self.ansvar: 0}
-        self.autoclose = False
+        self.autoclose = autoclose
 
     def splitexpr(self, expr):
         pos = 0
@@ -269,7 +271,8 @@ class Calculator:
             if token.type == '(':
                 opstack.append(token)
             elif token.type.startswith('op'):
-                if token.name in '+-' and (lastt is None or lastt.type in ('(', 'op_l', 'op_r', ',')):
+                if token.name in '+-' and (
+                        lastt is None or lastt.type in ('(', 'op_l', 'op_r', ',')):
                     if token.name == '+':
                         token.name = 'pos'
                         token.value = operator.pos
@@ -383,11 +386,14 @@ class Calculator:
         try:
             return self.format(self.eval(expr))
         except MathError as ex:
-            return "Math Error:\n %s\n %s" % (expr, ' ' * ex.pos + '^' * ex.length)
+            return "Math Error:\n %s\n %s" % (
+                expr, ' ' * ex.pos + '^' * ex.length)
         except SyntaxError as ex:
-            return "Syntax Error:\n %s\n %s" % (expr, ' ' * ex.pos + '^' * ex.length)
+            return "Syntax Error:\n %s\n %s" % (
+                expr, ' ' * ex.pos + '^' * ex.length)
         except KbdBreak as ex:
-            return "Keyboard Break:\n %s\n %s" % (expr, ' ' * ex.pos + '^' * ex.length)
+            return "Keyboard Break:\n %s\n %s" % (
+                expr, ' ' * ex.pos + '^' * ex.length)
 
 
 def main():
