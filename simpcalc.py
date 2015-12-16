@@ -68,7 +68,11 @@ def adapt_cmath(funcname):
         if isinstance(x, complex):
             return getattr(cmath, funcname)(x)
         else:
-            return getattr(math, funcname)(x)
+            try:
+                return getattr(math, funcname)(x)
+            except Exception:
+                # sqrt etc.
+                return getattr(cmath, funcname)(x)
     return wrapped
 
 
@@ -116,10 +120,6 @@ def resplit(regex, string):
 
 
 class Calculator:
-
-    # type, priority, parameters
-    # type: 0:Whitespace, 1:Function, 2:Operator-ltr, 3:Operator-rtl
-    # 4:Delimiter, 5:BracketEnd
 
     operators = collections.OrderedDict((
         (" ", ('ws', 1, 1)),
@@ -186,7 +186,9 @@ class Calculator:
         "imag": (operator.attrgetter("imag"), 1),
         "exp": (adapt_cmath("exp"), 1),
         "log": (adapt_cmath("log"), 1),
+        "ln": (adapt_cmath("log"), 1),
         "log10": (adapt_cmath("log10"), 1),
+        "lg": (adapt_cmath("log10"), 1),
         "sqrt": (adapt_cmath("sqrt"), 1),
         "√": (adapt_cmath("sqrt"), 1),
         "acos": (adapt_cmath("acos"), 1),
@@ -309,13 +311,15 @@ class Calculator:
                 opstack.append(token)
             else:
                 yield token
+            # check function brackets
+            if lastt and token.type != '(' and lastt.type == 'fn' and lastt.argnum:
+                raise SyntaxError(lastt.pos, len(lastt.name))
             lastt = token
         while opstack:
-            # Don't check if there is a parenthesis or a function.
-            # Ignored right parenthesis is allowed.
             op = opstack.pop()
             if op.type != '(':
                 yield op
+            # If self.autoclose then ignored right parenthesis is allowed.
             elif not self.autoclose:
                 raise SyntaxError(op.pos, len(op.name))
 
