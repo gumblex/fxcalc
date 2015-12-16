@@ -16,9 +16,10 @@ class CalculatorError(Exception):
 class MathError(CalculatorError):
     '''The Math Error type.'''
 
-    def __init__(self, pos=0):
+    def __init__(self, pos=0, length=1):
         super().__init__(self)
         self.pos = pos
+        self.length = length
 
     def __repr__(self):
         return 'MathError(%s)' % self.pos
@@ -27,9 +28,10 @@ class MathError(CalculatorError):
 class SyntaxError(CalculatorError):
     '''The Syntax Error type.'''
 
-    def __init__(self, pos=0):
+    def __init__(self, pos=0, length=1):
         super().__init__(self)
         self.pos = pos
+        self.length = length
 
     def __repr__(self):
         return 'SyntaxError(%s)' % self.pos
@@ -38,9 +40,10 @@ class SyntaxError(CalculatorError):
 class KbdBreak(CalculatorError):
     '''The Keyboard Break Error type.'''
 
-    def __init__(self, pos=0):
+    def __init__(self, pos=0, length=1):
         super().__init__(self)
         self.pos = pos
+        self.length = length
 
     def __repr__(self):
         return 'KbdBreak(%s)' % self.pos
@@ -254,7 +257,7 @@ class Calculator:
                 fn = self.functions[s]
                 yield Token(s, pos, 'fn', argnum=fn[1], value=fn[0])
             else:
-                raise SyntaxError(pos)
+                raise SyntaxError(pos, len(s))
             pos += len(s)
 
     def torpn(self, lstin):
@@ -290,13 +293,13 @@ class Calculator:
                     while opstack[-1].name != '(':
                         yield opstack.pop()
                 except IndexError:
-                    raise SyntaxError(key)
+                    raise SyntaxError(key, len(token.name))
             elif token.type == ')':
                 try:
                     while opstack[-1].name != '(':
                         yield opstack.pop()
                 except IndexError:
-                    raise SyntaxError(key)
+                    raise SyntaxError(key, len(token.name))
                 op = opstack.pop()
                 if opstack and opstack[-1].type == 'fn':
                     yield opstack.pop()
@@ -314,7 +317,7 @@ class Calculator:
             if op.type != '(':
                 yield op
             elif not self.autoclose:
-                raise SyntaxError(op.pos)
+                raise SyntaxError(op.pos, len(op.name))
 
     def evalrpn(self, lstin):
         '''Evaluates the Reverse Polish Expression.'''
@@ -328,18 +331,18 @@ class Calculator:
                 try:
                     args = [numstack.pop() for i in range(token.argnum)]
                 except IndexError:
-                    raise SyntaxError(token.pos)
+                    raise SyntaxError(token.pos, len(token.name))
                 try:
                     numstack.append(token.value(*reversed(args)))
                 except KeyboardInterrupt:
-                    raise KbdBreak(token.pos)
+                    raise KbdBreak(token.pos, len(token.name))
                 except Exception:
-                    raise MathError(token.pos)
+                    raise MathError(token.pos, len(token.name))
             else:
                 # Logic error in program
                 raise AssertionError('token %r appears in RPN' % token)
         if len(numstack) > 1:
-            raise SyntaxError(token.pos)
+            raise SyntaxError(token.pos, len(token.name))
         elif numstack:
             return numstack.pop()
         else:
@@ -376,11 +379,11 @@ class Calculator:
         try:
             return self.format(self.eval(expr))
         except MathError as ex:
-            return "Math Error:\n %s\n %s" % (expr, ' ' * ex.pos + '^')
+            return "Math Error:\n %s\n %s" % (expr, ' ' * ex.pos + '^' * ex.length)
         except SyntaxError as ex:
-            return "Syntax Error:\n %s\n %s" % (expr, ' ' * ex.pos + '^')
+            return "Syntax Error:\n %s\n %s" % (expr, ' ' * ex.pos + '^' * ex.length)
         except KbdBreak as ex:
-            return "Keyboard Break:\n %s\n %s" % (expr, ' ' * ex.pos + '^')
+            return "Keyboard Break:\n %s\n %s" % (expr, ' ' * ex.pos + '^' * ex.length)
 
 
 def main():
