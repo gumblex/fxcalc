@@ -108,7 +108,7 @@ def resplit(regex, string):
             yield string[pos:m.start(0)]
         yield string[m.start(0):m.end(0)]
         pos = m.end(0)
-    if pos < len(string) - 1:
+    if pos < len(string):
         yield string[pos:]
 
 
@@ -350,18 +350,7 @@ class Calculator:
         self.vars[self.ansvar] = ret
         return ret
 
-    def pretty(self, expr, err=True):
-        try:
-            ret = self.eval(expr)
-        except MathError as ex:
-            if err:
-                return "Math Error:\n %s\n %s" % (expr, ' ' * ex.pos + '^')
-        except SyntaxError as ex:
-            if err:
-                return "Syntax Error:\n %s\n %s" % (expr, ' ' * ex.pos + '^')
-        except KbdBreak as ex:
-            if err:
-                return "Keyboard Break:\n %s\n %s" % (expr, ' ' * ex.pos + '^')
+    def format(self, ret):
         if ret is None:
             return ''
         elif isinstance(ret, complex):
@@ -382,6 +371,16 @@ class Calculator:
             return str(ret)
         else:
             return '0'
+
+    def pretty(self, expr):
+        try:
+            return self.format(self.eval(expr))
+        except MathError as ex:
+            return "Math Error:\n %s\n %s" % (expr, ' ' * ex.pos + '^')
+        except SyntaxError as ex:
+            return "Syntax Error:\n %s\n %s" % (expr, ' ' * ex.pos + '^')
+        except KbdBreak as ex:
+            return "Keyboard Break:\n %s\n %s" % (expr, ' ' * ex.pos + '^')
 
 
 def main():
