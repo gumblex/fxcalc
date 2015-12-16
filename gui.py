@@ -7,6 +7,7 @@ from tkinter.font import Font
 
 import simpcalc
 
+
 def autoclose(expr):
     count = 0
     for ch in expr:
@@ -20,16 +21,17 @@ def autoclose(expr):
 
 
 class CopiableText(Text):
+
     def __init__(self, master, **kw):
         Text.__init__(self, master, **kw)
         self.bind('<Control-c>', self.copy)
         self.bind('<Control-x>', self.cut)
-        
+
     def copy(self, event=None):
         self.clipboard_clear()
         text = self.get("sel.first", "sel.last")
         self.clipboard_append(text)
-    
+
     def cut(self, event):
         self.copy()
         self.delete("sel.first", "sel.last")
@@ -140,14 +142,16 @@ class App(Frame):
         try:
             r = self.calculator.eval(expr)
         except simpcalc.CalculatorError as ex:
-            self.text_input.tag_add("err", '1.%d' % ex.pos, '1.%d' % (ex.pos + ex.length))
+            self.text_input.tag_add("err", '1.%d' %
+                                    ex.pos, '1.%d' % (ex.pos + ex.length))
             return
         ret = self.calculator.format(r)
         self.text_input.replace('1.0', END, ret)
         self.text_input.tag_add("bold", '1.0', 'end -1 chars')
         self.text_input.mark_set(INSERT, END)
         self.text_history.insert(END, '%s = %s\n' % (autoclose(expr), ret))
-        self.text_history.tag_add("bold", 'end -%d chars' % (len(ret) + 4), 'end -2 chars')
+        self.text_history.tag_add("bold", 'end -%d chars' %
+                                  (len(ret) + 5), 'end -2 chars')
         self.text_history.mark_set(INSERT, END)
         self.text_history.see(END)
         self.returned = True
