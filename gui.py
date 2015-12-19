@@ -72,6 +72,7 @@ class App(Frame):
         self.text_history = CopiableText(self, height=5, font=font)
         self.text_history.grid(row=0, column=0, columnspan=6, sticky=NSEW)
         self.text_history.tag_configure("bold", font=fontb)
+        self.text_history.bind('<KeyPress>', lambda e=None: 'break')
         self.text_input = CopiableText(self, height=2, font=font)
         self.text_input.grid(row=1, column=0, columnspan=6, sticky=NSEW)
         self.text_input.tag_configure("right", justify='right')
